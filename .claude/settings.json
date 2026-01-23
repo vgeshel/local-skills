@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "TDD CHECKPOINT: Before making ANY code changes, ask yourself:\n1. Did I write a failing test FIRST?\n2. Did I watch the test fail before implementing?\n3. Am I about to use the Edit tool on a .ts file without a test?\n\nIf you're about to edit code without a failing test, STOP and write the test first. This applies to ALL changes: features, bug fixes, refactors, and 'small fixes'."
+          }
+        ]
+      }
+    ]
+  }
+}

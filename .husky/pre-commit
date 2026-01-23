@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+bun typecheck
+bun run scripts/check-lint-exceptions.ts
+bun lint
+bunx lint-staged

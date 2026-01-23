@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*",
+    "app/**/*",
+    "migrations/**/*",
+    "scripts/**/*",
+    ".claude/**/*",
+    "kysely.config.ts",
+    "next.config.ts",
+    "next-env.d.ts"
+  ]
+}
