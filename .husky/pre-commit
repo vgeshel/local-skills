@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 bun typecheck
-bun run scripts/check-lint-exceptions.ts
+bun run scripts/check-lint-exceptions.ts | bunx pino-pretty
 bun lint
 
 # Verify vitest coverage thresholds remain at 100%
 # Prevents lowering of code coverage requirements
-bun run scripts/check-coverage-thresholds.ts
+bun run scripts/check-coverage-thresholds.ts | bunx pino-pretty
 
 bunx lint-staged
