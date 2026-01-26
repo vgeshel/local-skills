@@ -2,4 +2,9 @@
 bun typecheck
 bun run scripts/check-lint-exceptions.ts
 bun lint
+
+# Verify vitest coverage thresholds remain at 100%
+# Prevents lowering of code coverage requirements
+bun run scripts/check-coverage-thresholds.ts
+
 bunx lint-staged
