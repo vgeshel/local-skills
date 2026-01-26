@@ -13,7 +13,7 @@ This project includes skills for procedural guidance. Use these when performing 
 | Skill                | When to Use                                     |
 | -------------------- | ----------------------------------------------- |
 | `database-migration` | Creating or modifying database schema           |
-| `tdd-workflow`       | ANY code change: features, bug fixes, refactors |
+| `tdd`                | ANY code change: features, bug fixes, refactors |
 
 ## Agentic Coding Principles
 
