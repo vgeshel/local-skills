@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 
 /**
  * Lint exception detection for pre-commit hooks
@@ -7,13 +7,12 @@
  * that bypass linting guardrails.
  *
  * Usage:
- *   bun scripts/check-lint-exceptions.ts [--tree]
+ *   pnpm exec tsx scripts/check-lint-exceptions.ts [--tree]
  *
  * Options:
  *   --tree    Check entire file tree instead of staged changes
  */
 
-import { logger } from '@/lib/logger'
 import { Command } from 'commander'
 
 /**
@@ -289,10 +288,7 @@ export async function main(
     const violations = walkTree('.', fs)
 
     if (violations.length > 0) {
-      logger.error(
-        { report: formatViolationReport(violations) },
-        'Lint exceptions found',
-      )
+      console.error(formatViolationReport(violations))
       return 1
     }
 
@@ -314,21 +310,20 @@ export async function main(
   const violations = detectLintExceptions(diff)
 
   if (violations.length > 0) {
-    logger.error(
-      { report: formatViolationReport(violations) },
-      'Lint exceptions found',
-    )
+    console.error(formatViolationReport(violations))
     return 1
   }
 
   return 0
 }
 
-if (import.meta.main) {
+import { fileURLToPath } from 'node:url'
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main(process.argv.slice(2))
     .then((code) => process.exit(code))
     .catch((err: unknown) => {
-      logger.error({ err }, 'Failed to check lint exceptions')
+      console.error('Failed to check lint exceptions', err)
       process.exit(1)
     })
 }

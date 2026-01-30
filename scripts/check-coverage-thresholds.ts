@@ -4,7 +4,6 @@
  * Ensures vitest coverage thresholds in vitest.config.ts remain at 100%.
  */
 
-import { logger } from '@/lib/logger'
 import { z } from 'zod'
 
 const ThresholdsSchema = z.object({
@@ -36,29 +35,26 @@ export async function main(testConfig?: { default: unknown }): Promise<void> {
   try {
     const config = testConfig ?? (await import('../vitest.config'))
     ThresholdsSchema.parse(config.default)
-    logger.info('Coverage thresholds verified (all at 100%)')
+    console.info('Coverage thresholds verified (all at 100%)')
   } catch (error) {
     exitCode = 1
     if (error instanceof z.ZodError) {
-      logger.error(
-        {
-          report: [
-            '',
-            '==========================================',
-            '  COMMIT BLOCKED: Coverage Thresholds Modified',
-            '==========================================',
-            '',
-            'All coverage thresholds must be 100%.',
-            'Please restore the thresholds in vitest.config.ts.',
-            '',
-          ].join('\n'),
-        },
-        'Coverage thresholds modified',
+      console.error(
+        [
+          '',
+          '==========================================',
+          '  COMMIT BLOCKED: Coverage Thresholds Modified',
+          '==========================================',
+          '',
+          'All coverage thresholds must be 100%.',
+          'Please restore the thresholds in vitest.config.ts.',
+          '',
+        ].join('\n'),
       )
     } else {
-      logger.error(
-        { err: error },
+      console.error(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
+        error,
       )
     }
   }
@@ -66,12 +62,17 @@ export async function main(testConfig?: { default: unknown }): Promise<void> {
   process.exit(exitCode)
 }
 
+import { fileURLToPath } from 'node:url'
+
 /* istanbul ignore next -- entrypoint with unreliable async timing in tests */
-if (import.meta.main || process.env.COVERAGE_THRESHOLDS_RUN_MAIN === 'true') {
+if (
+  process.argv[1] === fileURLToPath(import.meta.url) ||
+  process.env.COVERAGE_THRESHOLDS_RUN_MAIN === 'true'
+) {
   main()
     .catch(
       /* istanbul ignore next */ (err) => {
-        logger.error({ err }, 'Failed to check coverage thresholds')
+        console.error('Failed to check coverage thresholds', err)
         process.exit(1)
       },
     )

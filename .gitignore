@@ -41,5 +41,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-# bun
-bun.lock
+# pnpm (pnpm-lock.yaml should be committed)

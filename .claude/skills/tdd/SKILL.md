@@ -1,11 +1,11 @@
 ---
 name: tdd
-description: Test-Driven Development workflow with vitest and real database. Use when implementing features, fixing bugs, or addressing coverage gaps.
+description: Test-Driven Development workflow with vitest. Use when implementing features, fixing bugs, or addressing coverage gaps.
 ---
 
 # Test-Driven Development (TDD) Skill
 
-This skill guides you through test-driven development with 100% coverage using vitest and real database testing.
+This skill guides you through test-driven development with 100% coverage using vitest.
 
 ## When to Use
 
@@ -21,19 +21,19 @@ This skill guides you through test-driven development with 100% coverage using v
 
 - Identify the behavior to implement
 - Write a test that defines the expected behavior
-- Run `bun test:run` - the test should FAIL
+- Run `pnpm run test:run` - the test should FAIL
 - If it passes, your test isn't testing what you think
 
 ### 2. GREEN: Minimum Code to Pass
 
 - Write the minimum code to make the test pass
 - Don't over-engineer - just make it work
-- Run `bun test:run` - the test should PASS
+- Run `pnpm run test:run` - the test should PASS
 
 ### 3. REFACTOR: Clean Up
 
 - Improve code quality while keeping tests green
-- Run `bun test:run` after each change
+- Run `pnpm run test:run` after each change
 
 ### 4. REPEAT
 
@@ -52,25 +52,11 @@ src/services/
 ## Test Template
 
 ```typescript
-import { describe, it, expect, beforeEach, afterAll } from 'vitest'
-import {
-  getTestDb,
-  cleanupTestDatabase,
-  closeTestDatabase,
-} from '../test/db-helpers'
+import { describe, it, expect } from 'vitest'
 
 describe('ExampleService', () => {
-  beforeEach(async () => {
-    await cleanupTestDatabase() // Clean slate for each test
-  })
-
-  afterAll(async () => {
-    await cleanupTestDatabase()
-    await closeTestDatabase() // Close connections when done
-  })
-
   describe('createExample', () => {
-    it('creates an example with required fields', async () => {
+    it('creates an example with required fields', () => {
       // Arrange
       const input = {
         name: 'Test Example',
@@ -78,21 +64,11 @@ describe('ExampleService', () => {
       }
 
       // Act
-      const result = await exampleService.create(input)
+      const result = exampleService.create(input)
 
-      // Assert - verify return value
-      expect(result.id).toBeDefined()
+      // Assert
       expect(result.name).toBe('Test Example')
-
-      // Assert - verify database state
-      const db = getTestDb()
-      const dbRecord = await db
-        .selectFrom('example')
-        .where('id', '=', result.id)
-        .selectAll()
-        .executeTakeFirstOrThrow()
-
-      expect(dbRecord.name).toBe('Test Example')
+      expect(result.value).toBe(42)
     })
   })
 })
@@ -100,20 +76,7 @@ describe('ExampleService', () => {
 
 ## Key Testing Principles
 
-### 1. Use Real Database
-
-Do NOT mock Kysely or database connections:
-
-```typescript
-// Correct - use real test database
-const db = getTestDb()
-const result = await db.selectFrom('user').selectAll().execute()
-
-// Wrong - mocking database
-const mockDb = { selectFrom: vi.fn() }
-```
-
-### 2. Verify Actual Values
+### 1. Verify Actual Values
 
 Don't just check existence - verify expected values:
 
@@ -128,37 +91,16 @@ expect(result).toBeDefined()
 expect(result.title).toBeTruthy()
 ```
 
-### 3. Verify Database State
-
-Don't trust return values alone - query the database:
-
-```typescript
-// After calling service function
-const result = await userService.updateEmail(userId, 'new@email.com')
-
-// Verify in database
-const db = getTestDb()
-const dbUser = await db
-  .selectFrom('user')
-  .where('id', '=', userId)
-  .selectAll()
-  .executeTakeFirstOrThrow()
-
-expect(dbUser.email).toBe('new@email.com')
-```
-
-### 4. Test Error Cases
+### 2. Test Error Cases
 
 Cover failure modes, not just happy paths:
 
 ```typescript
 describe('error handling', () => {
-  it('throws NotFoundError when record does not exist', async () => {
+  it('throws NotFoundError when record does not exist', () => {
     const nonExistentId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
 
-    await expect(exampleService.getById(nonExistentId)).rejects.toThrow(
-      NotFoundError,
-    )
+    expect(() => exampleService.getById(nonExistentId)).toThrow(NotFoundError)
   })
 })
 ```
@@ -242,7 +184,7 @@ Write THREE tests:
 
 Bug fixes require proving the bug exists before fixing it:
 
-1. **Query actual data** - Check database/logs to understand real state
+1. **Understand the bug** - Check logs to understand real state
 2. **Write a FAILING test** - Test must fail because of the bug
 3. **Watch it fail** - Confirms test catches the bug
 4. **Implement the fix** - Minimal change to pass test
@@ -252,19 +194,19 @@ Bug fixes require proving the bug exists before fixing it:
 
 ```bash
 # Watch mode during development
-bun test
+pnpm run test
 
 # Run once (CI mode)
-bun test:run
+pnpm run test:run
 
 # Run with coverage verification (USE BEFORE COMMITTING)
-bun test:coverage
+pnpm run test:coverage
 
 # Run specific file
-bun test src/services/example.test.ts
+pnpm run test src/services/example.test.ts
 
 # Run tests matching pattern
-bun test -t "creates an example"
+pnpm run test -t "creates an example"
 ```
 
 ## Verification Sequence
@@ -272,12 +214,12 @@ bun test -t "creates an example"
 **Before committing new code:**
 
 ```bash
-bun typecheck        # Type safety
-bun lint             # Code style
-bun test:coverage    # Tests AND coverage (100% required)
+pnpm run typecheck        # Type safety
+pnpm run lint             # Code style
+pnpm run test:coverage    # Tests AND coverage (100% required)
 ```
 
-**NEVER** use `bun test:run` for final verification - it doesn't check coverage.
+**NEVER** use `pnpm run test:run` for final verification - it doesn't check coverage.
 
 ## Quick Checklist
 
@@ -285,16 +227,15 @@ Before committing:
 
 - [ ] Every ternary `a ? b : c` has tests for BOTH branches
 - [ ] Every nullish coalescing `a ?? b` has tests for defined AND undefined
-- [ ] `bun test:coverage` shows 100% for all columns
+- [ ] `pnpm run test:coverage` shows 100% for all columns
 - [ ] No istanbul ignore comments added (write tests instead)
 
 ## Anti-Patterns to Avoid
 
-1. **Mocking database connections** - Use real test database
-2. **Testing only happy paths** - Cover error cases
-3. **Weak assertions** - Avoid `toBeDefined()`, `toBeTruthy()` alone
-4. **Skipping tests** - No `.skip` or commenting out
-5. **Writing implementation before tests** - Tests come first
-6. **Running `bun test:run` instead of `bun test:coverage`** - Pre-commit will fail
-7. **Using istanbul ignore comments** - This violates "never relax guardrails"
-8. **Not testing both branches** - Every `?` or `??` needs at least 2 tests
+1. **Testing only happy paths** - Cover error cases
+2. **Weak assertions** - Avoid `toBeDefined()`, `toBeTruthy()` alone
+3. **Skipping tests** - No `.skip` or commenting out
+4. **Writing implementation before tests** - Tests come first
+5. **Running `pnpm run test:run` instead of `pnpm run test:coverage`** - Pre-commit will fail
+6. **Using istanbul ignore comments** - This violates "never relax guardrails"
+7. **Not testing both branches** - Every `?` or `??` needs at least 2 tests

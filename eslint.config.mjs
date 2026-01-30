@@ -55,9 +55,6 @@ export default [
         { argsIgnorePattern: '^_' },
       ],
 
-      // Use pino logger instead of console
-      'no-console': 'error',
-
       // Ban all `as` type assertions - use Zod validation or type guards instead
       // For JSONB database reads, use the parseJsonb() utility from @/server/db
       '@typescript-eslint/consistent-type-assertions': [
