@@ -97,6 +97,30 @@ describe('createProgram', () => {
       expect(removeCmd?.registeredArguments[0].name()).toBe('skill-name')
     })
   })
+
+  describe('ls command', () => {
+    it('exists and accepts an optional source argument', () => {
+      const program = createProgram()
+      const lsCmd = program.commands.find((c: Command) => c.name() === 'ls')
+
+      expect(lsCmd).toBeDefined()
+      expect(lsCmd?.registeredArguments).toHaveLength(1)
+      expect(lsCmd?.registeredArguments[0].name()).toBe('source')
+      expect(lsCmd?.registeredArguments[0].required).toBe(false)
+    })
+  })
+
+  describe('info command', () => {
+    it('exists and accepts a required skill argument', () => {
+      const program = createProgram()
+      const infoCmd = program.commands.find((c: Command) => c.name() === 'info')
+
+      expect(infoCmd).toBeDefined()
+      expect(infoCmd?.registeredArguments).toHaveLength(1)
+      expect(infoCmd?.registeredArguments[0].name()).toBe('skill')
+      expect(infoCmd?.registeredArguments[0].required).toBe(true)
+    })
+  })
 })
 
 describe('CLI command actions', () => {
@@ -337,6 +361,210 @@ describe('CLI command actions', () => {
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining('SKILL_NOT_INSTALLED'),
       )
+      expect(process.exitCode).toBe(1)
+    })
+  })
+
+  describe('ls action', () => {
+    it('prints "No skills found" when no skills are installed', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync(['node', 'local-skills', 'ls'])
+
+      expect(logSpy).toHaveBeenCalledWith('No skills found')
+    })
+
+    it('lists installed skills after adding one', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync(['node', 'local-skills', 'ls'])
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('tdd'))
+    })
+
+    it('lists remote marketplace skills', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        `file://${marketplaceRepo}`,
+      ])
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('tdd'))
+    })
+
+    it('lists remote plugin skills with @ syntax', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        `superpowers@file://${marketplaceRepo}`,
+      ])
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('tdd'))
+    })
+
+    it('prints error for invalid specifier with @', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync(['node', 'local-skills', 'ls', '@'])
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('INVALID_SPECIFIER'),
+      )
+      expect(process.exitCode).toBe(1)
+    })
+
+    it('prints error for invalid marketplace reference', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync(['node', 'local-skills', 'ls', 'not-valid'])
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('INVALID_SPECIFIER'),
+      )
+      expect(process.exitCode).toBe(1)
+    })
+
+    it('prints error when remote ls fails', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        `superpowers@file:///nonexistent/repo.git`,
+      ])
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error ['))
+      expect(process.exitCode).toBe(1)
+    })
+
+    it('prints error for GitHub shorthand marketplace that does not exist', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        'nonexistent-owner/nonexistent-repo',
+      ])
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error ['))
+      expect(process.exitCode).toBe(1)
+    })
+  })
+
+  describe('info action', () => {
+    it('shows info for an installed skill', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync(['node', 'local-skills', 'info', 'tdd'])
+
+      expect(logSpy).toHaveBeenCalledWith('Skill: tdd')
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Source: superpowers@'),
+      )
+    })
+
+    it('shows error for nonexistent installed skill', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync(['node', 'local-skills', 'info', 'nonexistent'])
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('SKILL_NOT_INSTALLED'),
+      )
+      expect(process.exitCode).toBe(1)
+    })
+
+    it('shows info for a remote skill with @ syntax', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'info',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+
+      expect(logSpy).toHaveBeenCalledWith('Skill: tdd')
+    })
+
+    it('prints error for invalid specifier', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync(['node', 'local-skills', 'info', '@'])
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('INVALID_SPECIFIER'),
+      )
+      expect(process.exitCode).toBe(1)
+    })
+
+    it('prints error when skill name is missing from specifier', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'info',
+        `superpowers@file://${marketplaceRepo}`,
+      ])
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error: skill name is required for info',
+      )
+      expect(process.exitCode).toBe(1)
+    })
+
+    it('prints error when remote info fails', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'info',
+        `superpowers@file:///nonexistent/repo.git:tdd`,
+      ])
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error ['))
       expect(process.exitCode).toBe(1)
     })
   })
