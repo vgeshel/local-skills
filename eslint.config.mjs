@@ -13,7 +13,6 @@ export default [
       '.turbo/**',
       'eslint.config.*',
       'vitest.config.ts',
-      '.next/**',
     ],
   },
 

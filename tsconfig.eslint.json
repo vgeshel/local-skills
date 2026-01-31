@@ -3,14 +3,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": [
-    "src/**/*",
-    "app/**/*",
-    "migrations/**/*",
-    "scripts/**/*",
-    ".claude/**/*",
-    "kysely.config.ts",
-    "next.config.ts",
-    "next-env.d.ts"
-  ]
+  "include": ["src/**/*", "bin/**/*", "scripts/**/*", ".claude/**/*"]
 }

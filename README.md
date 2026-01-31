@@ -1,86 +1,89 @@
-# TypeScript Project
+# local-skills
 
-A TypeScript project with:
+Extract individual skills from Claude Code plugin marketplaces and copy them into your project's `.claude/skills/` directory. Each project gets a curated, version-controlled set of skills.
 
-- **TypeScript** strict mode with comprehensive ESLint rules
-- **Vitest** for testing
-- **Pre-commit hooks** for quality assurance
-- **Claude Code skills** for agentic development
-
-## Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org) (runtime)
-- [pnpm](https://pnpm.io) (package manager)
-
-### Setup
-
-1. **Install dependencies**
-
-   ```bash
-   pnpm install
-   ```
-
-2. **Configure environment**
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   Edit `.env.local` with your configuration.
-
-## Development Commands
+## Installation
 
 ```bash
-# Development
-pnpm run typecheck        # TypeScript type checking
-pnpm run lint             # ESLint
-pnpm run format           # Prettier formatting
+pnpm install
+```
 
-# Testing
+## Usage
+
+### Add a skill
+
+```bash
+# GitHub shorthand
+local-skills add superpowers@anthropics/claude-code/tdd
+
+# Pinned to a tag
+local-skills add superpowers@anthropics/claude-code/tdd:v2.0
+
+# All skills from a plugin
+local-skills add superpowers@anthropics/claude-code/*
+
+# Full git URL
+local-skills add my-plugin@https://gitlab.com/team/repo.git/my-skill
+```
+
+### Update a skill
+
+```bash
+local-skills update tdd
+```
+
+### Remove a skill
+
+```bash
+local-skills remove tdd
+```
+
+## Specifier Format
+
+```
+<plugin>@<marketplace>/<skill>[:<version>]
+```
+
+| Part          | Description                         |
+| ------------- | ----------------------------------- |
+| `plugin`      | Plugin name in the marketplace      |
+| `marketplace` | GitHub `owner/repo` or full git URL |
+| `skill`       | Skill name (or `*` for all)         |
+| `version`     | Optional git ref (tag, branch)      |
+
+## Manifest
+
+Installed skills are tracked in `.claude/local-skills.json`:
+
+```json
+{
+  "skills": {
+    "tdd": {
+      "source": "superpowers@anthropics/claude-code",
+      "ref": "main",
+      "sha": "abc123def456..."
+    }
+  }
+}
+```
+
+## How It Works
+
+1. Parses the specifier to identify the plugin, marketplace, skill, and optional version
+2. Shallow-clones the marketplace git repo
+3. Reads `.claude-plugin/marketplace.json` to find the plugin
+4. Copies the skill directory to `.claude/skills/<skill-name>/`
+5. Records the source, ref, and commit SHA in the manifest
+
+## Development
+
+```bash
+pnpm run typecheck        # Type checking
+pnpm run lint             # ESLint
 pnpm run test             # Watch mode
 pnpm run test:run         # Single run
-pnpm run test:coverage    # Run with coverage
+pnpm run test:coverage    # Coverage (100% required)
 ```
-
-## Project Structure
-
-```
-├── scripts/               # Build/dev scripts
-├── src/
-│   ├── lib/               # Shared utilities
-│   └── test/              # Test utilities
-├── .claude/               # Claude Code configuration
-│   ├── settings.json      # Hooks configuration
-│   └── skills/            # Development skills
-├── CLAUDE.md              # AI agent instructions
-└── package.json
-```
-
-## Key Features
-
-### Type Safety
-
-- **No `any` types** - Enforced by ESLint
-- **No `as` casts** - Use Zod validation instead
-
-### Pre-commit Hooks
-
-The pre-commit hook runs:
-
-1. `pnpm run typecheck` - Type checking
-2. `scripts/check-lint-exceptions.ts` - Blocks `eslint-disable` comments
-3. `pnpm run lint` - ESLint
-4. `lint-staged` - Format changed files
-
-## Claude Code Integration
-
-This project includes Claude Code skills for:
-
-- **TDD workflow** - Test-driven development guidance
-
-See `.claude/skills/` for details.
 
 ## License
 
