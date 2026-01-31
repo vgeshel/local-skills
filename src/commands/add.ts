@@ -109,10 +109,14 @@ function installSkills(
   claudeDir: string,
   manifestPath: string,
 ): ResultAsync<void, LocalSkillsError> {
+  if (spec.skill === undefined) {
+    return errAsync(
+      localSkillsError('INVALID_SPECIFIER', 'Skill name is required for add'),
+    )
+  }
   if (spec.skill === '*') {
     return installAllSkills(deps, spec, pluginDir, sha, claudeDir, manifestPath)
   }
-
   return installSingleSkill(
     deps,
     spec,

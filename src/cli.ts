@@ -31,7 +31,7 @@ export function createProgram(options?: ProgramOptions): Command {
   program
     .command('add')
     .description('Add a skill from a marketplace')
-    .argument('<specifier>', 'plugin@marketplace/skill[:version]')
+    .argument('<specifier>', 'plugin@marketplace[:version]:skill')
     .action(async (specifier: string) => {
       const parsed = parseSpecifier(specifier)
 
@@ -50,7 +50,11 @@ export function createProgram(options?: ProgramOptions): Command {
       }
 
       const source = sourceLabel(parsed.value)
-      console.log(`Added skill "${parsed.value.skill}" from ${source}`)
+      const skillLabel =
+        parsed.value.skill === '*'
+          ? 'all skills'
+          : `skill "${parsed.value.skill}"`
+      console.log(`Added ${skillLabel} from ${source}`)
     })
 
   program
