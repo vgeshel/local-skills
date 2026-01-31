@@ -151,7 +151,10 @@ describe('CLI command actions', () => {
 
     const skillDir = path.join(marketplaceRepo, 'skills', 'tdd')
     await fs.mkdir(skillDir, { recursive: true })
-    await fs.writeFile(path.join(skillDir, 'SKILL.md'), '# TDD Skill')
+    await fs.writeFile(
+      path.join(skillDir, 'SKILL.md'),
+      '---\nname: tdd\ndescription: Test-driven development\n---\n\n# TDD Skill',
+    )
 
     execSync('git add -A', { cwd: marketplaceRepo })
     execSync('git commit -m "initial"', { cwd: marketplaceRepo })
@@ -198,7 +201,9 @@ describe('CLI command actions', () => {
         path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
         'utf-8',
       )
-      expect(skillContent).toBe('# TDD Skill')
+      expect(skillContent).toBe(
+        '---\nname: tdd\ndescription: Test-driven development\n---\n\n# TDD Skill',
+      )
     })
 
     it('prints error for invalid specifier', async () => {
@@ -495,6 +500,26 @@ describe('CLI command actions', () => {
       expect(logSpy).toHaveBeenCalledWith('Skill: tdd')
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('Source: superpowers@'),
+      )
+    })
+
+    it('displays front matter from SKILL.md', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync(['node', 'local-skills', 'info', 'tdd'])
+
+      expect(logSpy).toHaveBeenCalledWith(
+        'description: Test-driven development',
       )
     })
 

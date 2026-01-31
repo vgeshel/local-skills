@@ -351,6 +351,21 @@ describe('add command', () => {
     }
   })
 
+  it('rejects undefined skill', async () => {
+    const result = await add(deps, projectDir, {
+      plugin: 'superpowers',
+      marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+      skill: undefined,
+      ref: undefined,
+    })
+
+    expect(result.isErr()).toBe(true)
+    if (result.isErr()) {
+      expect(result.error.code).toBe('INVALID_SPECIFIER')
+      expect(result.error.message).toContain('Skill name is required')
+    }
+  })
+
   it('returns CLONE_FAILED for invalid repo URL', async () => {
     const result = await add(deps, projectDir, {
       plugin: 'superpowers',

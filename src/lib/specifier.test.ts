@@ -232,6 +232,77 @@ describe('parseSpecifier', () => {
         expect(result.error.code).toBe('INVALID_SPECIFIER')
       }
     })
+
+    it('rejects empty marketplace after @', () => {
+      const result = parseSpecifier('plugin@')
+
+      expect(result.isErr()).toBe(true)
+      if (result.isErr()) {
+        expect(result.error.code).toBe('INVALID_SPECIFIER')
+        expect(result.error.message).toContain('empty marketplace')
+      }
+    })
+
+    it('treats trailing colon as no skill and no ref', () => {
+      const result = parseSpecifier('superpowers@anthropics/claude-code:')
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.plugin).toBe('superpowers')
+        expect(result.value.marketplace).toEqual({
+          type: 'github',
+          owner: 'anthropics',
+          repo: 'claude-code',
+        })
+        expect(result.value.skill).toBeUndefined()
+        expect(result.value.ref).toBeUndefined()
+      }
+    })
+
+    it('rejects too many colon segments', () => {
+      const result = parseSpecifier(
+        'superpowers@anthropics/claude-code:v1:tdd:extra',
+      )
+
+      expect(result.isErr()).toBe(true)
+      if (result.isErr()) {
+        expect(result.error.code).toBe('INVALID_SPECIFIER')
+        expect(result.error.message).toContain('Too many')
+      }
+    })
+
+    it('treats SHA-like segment as ref', () => {
+      const result = parseSpecifier(
+        'superpowers@anthropics/claude-code:abcdef1',
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.plugin).toBe('superpowers')
+        expect(result.value.ref).toBe('abcdef1')
+        expect(result.value.skill).toBeUndefined()
+      }
+    })
+
+    it('treats empty ref in two-colon format as undefined ref', () => {
+      const result = parseSpecifier('superpowers@anthropics/claude-code::tdd')
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.ref).toBeUndefined()
+        expect(result.value.skill).toBe('tdd')
+      }
+    })
+
+    it('treats empty skill in two-colon format as undefined skill', () => {
+      const result = parseSpecifier('superpowers@anthropics/claude-code:v1:')
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.ref).toBe('v1')
+        expect(result.value.skill).toBeUndefined()
+      }
+    })
   })
 })
 
@@ -287,6 +358,20 @@ describe('parseMarketplaceRef', () => {
         url: 'file:///Users/me/mkt',
       })
       expect(result.value.ref).toBe('v1.0')
+    }
+  })
+
+  it('treats trailing colon as no ref', () => {
+    const result = parseMarketplaceRef('anthropics/claude-code:')
+
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.marketplace).toEqual({
+        type: 'github',
+        owner: 'anthropics',
+        repo: 'claude-code',
+      })
+      expect(result.value.ref).toBeUndefined()
     }
   })
 

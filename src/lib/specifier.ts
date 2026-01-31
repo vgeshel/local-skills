@@ -204,10 +204,6 @@ function splitMarketplaceAndColons(input: string): {
   const marketplace = input.slice(0, firstColonAfterMarketplace)
   const rest = input.slice(firstColonAfterMarketplace + 1)
 
-  if (rest.length === 0) {
-    return { marketplace, colonSegments: [] }
-  }
-
   return { marketplace, colonSegments: rest.split(':') }
 }
 
