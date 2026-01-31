@@ -15,7 +15,7 @@ import {
 
 import { createProgram } from './cli.js'
 import { createDefaultDeps } from './lib/fs-ops.js'
-import { ManifestSchema } from './lib/schemas.js'
+import { ManifestSchema, StateFileSchema } from './lib/schemas.js'
 
 /**
  * End-to-end tests that exercise the full CLI lifecycle:
@@ -124,6 +124,14 @@ describe('end-to-end', () => {
       path.join(projectDir, '.claude', 'skills', skillName, fileName),
       'utf-8',
     )
+  }
+
+  async function readStateFile() {
+    const content = await fs.readFile(
+      path.join(projectDir, '.claude', 'local-skills-state.json'),
+      'utf-8',
+    )
+    return StateFileSchema.parse(JSON.parse(content))
   }
 
   it('full lifecycle: add → update → remove a single skill', async () => {
@@ -264,5 +272,94 @@ describe('end-to-end', () => {
     expect(console.error).toHaveBeenCalledWith(
       expect.stringContaining('SKILL_NOT_FOUND'),
     )
+  })
+
+  it('add → modify locally → update blocked → update --force succeeds', async () => {
+    // ADD
+    await run('add', specifier('tdd'))
+    expect(await skillExists('tdd')).toBe(true)
+
+    // Verify state file was created
+    const stateAfterAdd = await readStateFile()
+    expect(stateAfterAdd.skills.tdd).toBeDefined()
+    expect(stateAfterAdd.skills.tdd.contentHash).toMatch(/^[a-f0-9]{64}$/)
+
+    // MODIFY locally
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
+      '# TDD - my local edits',
+    )
+
+    // Make upstream change
+    await fs.writeFile(
+      path.join(marketplaceRepo, 'skills', 'tdd', 'SKILL.md'),
+      '# TDD v2 — force test',
+    )
+    execSync('git add -A', { cwd: marketplaceRepo })
+    execSync('git commit -m "update for force test"', {
+      cwd: marketplaceRepo,
+    })
+
+    // UPDATE without --force → blocked
+    await run('update', 'tdd')
+    expect(process.exitCode).toBe(1)
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('SKILL_MODIFIED'),
+    )
+
+    // Verify local changes are preserved
+    expect(await readSkill('tdd', 'SKILL.md')).toBe('# TDD - my local edits')
+
+    // Reset exitCode for next command
+    process.exitCode = undefined
+
+    // UPDATE with --force → succeeds
+    await run('update', '--force', 'tdd')
+    expect(process.exitCode).toBeUndefined()
+    expect(await readSkill('tdd', 'SKILL.md')).toBe('# TDD v2 — force test')
+
+    // State file updated with new hash
+    const stateAfterForce = await readStateFile()
+    expect(stateAfterForce.skills.tdd.contentHash).toMatch(/^[a-f0-9]{64}$/)
+    expect(stateAfterForce.skills.tdd.contentHash).not.toBe(
+      stateAfterAdd.skills.tdd.contentHash,
+    )
+
+    // Restore repo
+    execSync('git reset --hard HEAD~1', { cwd: marketplaceRepo })
+  })
+
+  it('pinned SHA lifecycle: add with SHA ref → update skipped', async () => {
+    // ADD (default ref)
+    await run('add', specifier('tdd'))
+
+    const manifest = await readManifest()
+    const sha = manifest.skills.tdd.sha
+
+    // Pin the ref to the SHA
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'local-skills.json'),
+      JSON.stringify(
+        {
+          skills: {
+            tdd: {
+              source: manifest.skills.tdd.source,
+              ref: sha,
+              sha,
+            },
+          },
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+
+    // UPDATE → skipped-pinned
+    await run('update', 'tdd')
+    expect(process.exitCode).toBeUndefined()
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('pinned'))
+
+    // Skill file unchanged
+    expect(await readSkill('tdd', 'SKILL.md')).toBe('# TDD v1')
   })
 })

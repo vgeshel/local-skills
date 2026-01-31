@@ -1,23 +1,27 @@
-import { errAsync, type ResultAsync } from 'neverthrow'
+import { errAsync, okAsync, type ResultAsync } from 'neverthrow'
 import * as path from 'node:path'
 
+import { computeContentHash } from '../lib/content-hash.js'
 import { localSkillsError, type LocalSkillsError } from '../lib/errors.js'
-import { cloneRepo, getHeadSha } from '../lib/git.js'
+import { cloneRepo, getHeadSha, isShaRef } from '../lib/git.js'
 import { readManifest, writeManifest } from '../lib/manifest.js'
 import {
   findPlugin,
   readMarketplace,
   resolvePluginDir,
 } from '../lib/marketplace.js'
-import type { Deps } from '../lib/types.js'
+import { readState, writeState } from '../lib/state.js'
+import type { Deps, UpdateResult } from '../lib/types.js'
 
 export function update(
   deps: Deps,
   projectDir: string,
   skillName: string,
-): ResultAsync<void, LocalSkillsError> {
+  options?: { force?: boolean },
+): ResultAsync<UpdateResult, LocalSkillsError> {
   const claudeDir = path.join(projectDir, '.claude')
   const manifestPath = path.join(claudeDir, 'local-skills.json')
+  const statePath = path.join(claudeDir, 'local-skills-state.json')
 
   return readManifest(deps, manifestPath).andThen((manifest) => {
     if (!(skillName in manifest.skills)) {
@@ -30,6 +34,15 @@ export function update(
     }
 
     const entry = manifest.skills[skillName]
+
+    // Pinned SHA — skip update
+    if (isShaRef(entry.ref)) {
+      return okAsync({
+        status: 'skipped-pinned',
+        sha: entry.sha,
+      } satisfies UpdateResult)
+    }
+
     const atIdx = entry.source.indexOf('@')
     if (atIdx === -1) {
       return errAsync(
@@ -43,13 +56,10 @@ export function update(
     const pluginName = entry.source.slice(0, atIdx)
     const marketplacePart = entry.source.slice(atIdx + 1)
 
-    // Determine the clone URL from the marketplace part
     let cloneUrl: string
     if (marketplacePart.includes('://')) {
-      // Full URL source
       cloneUrl = marketplacePart
     } else {
-      // GitHub shorthand: "owner/repo"
       cloneUrl = `https://github.com/${marketplacePart}.git`
     }
 
@@ -60,13 +70,51 @@ export function update(
 
     const tmpBase = tmpResult.value
     const cloneDir = path.join(tmpBase, `local-skills-update-${Date.now()}`)
-
     const ref = entry.ref === 'HEAD' ? undefined : entry.ref
 
-    return cloneRepo(deps, cloneUrl, cloneDir, ref)
+    // Local modification check
+    const modCheckResult: ResultAsync<void, LocalSkillsError> = options?.force
+      ? okAsync(undefined)
+      : readState(deps, statePath).andThen((state) => {
+          const stateEntry = state.skills[skillName]
+          if (!stateEntry) {
+            // No state entry — skip modification check (legacy or missing)
+            return okAsync(undefined)
+          }
+          const skillDestDir = path.join(claudeDir, 'skills', skillName)
+          return computeContentHash(deps, skillDestDir).andThen(
+            (currentHash) => {
+              if (currentHash !== stateEntry.contentHash) {
+                return errAsync(
+                  localSkillsError(
+                    'SKILL_MODIFIED',
+                    `Skill "${skillName}" has been locally modified. Use --force to overwrite.`,
+                  ),
+                )
+              }
+              return okAsync(undefined)
+            },
+          )
+        })
+
+    return modCheckResult
+      .andThen(() => cloneRepo(deps, cloneUrl, cloneDir, ref))
       .andThen(() => getHeadSha(deps, cloneDir))
-      .andThen((sha) =>
-        readMarketplace(deps, cloneDir).andThen((marketplace) => {
+      .andThen((newSha) => {
+        // Already up to date
+        if (newSha === entry.sha) {
+          return deps
+            .rm(cloneDir)
+            .map(
+              () =>
+                ({
+                  status: 'already-up-to-date',
+                  sha: newSha,
+                }) satisfies UpdateResult,
+            )
+        }
+
+        return readMarketplace(deps, cloneDir).andThen((marketplace) => {
           const pluginResult = findPlugin(marketplace, pluginName)
           if (pluginResult.isErr()) {
             return errAsync(pluginResult.error)
@@ -81,10 +129,22 @@ export function update(
 
           const skillSrcDir = path.join(pluginDir, 'skills', skillName)
           const skillDestDir = path.join(claudeDir, 'skills', skillName)
+          const oldSha = entry.sha
 
           return deps
             .rm(skillDestDir)
             .andThen(() => deps.cp(skillSrcDir, skillDestDir))
+            .andThen(() => computeContentHash(deps, skillDestDir))
+            .andThen((contentHash) =>
+              readState(deps, statePath).andThen((state) =>
+                writeState(deps, statePath, {
+                  skills: {
+                    ...state.skills,
+                    [skillName]: { contentHash },
+                  },
+                }),
+              ),
+            )
             .andThen(() => {
               const updatedManifest = {
                 skills: {
@@ -92,14 +152,18 @@ export function update(
                   [skillName]: {
                     source: entry.source,
                     ref: entry.ref,
-                    sha,
+                    sha: newSha,
                   },
                 },
               }
               return writeManifest(deps, manifestPath, updatedManifest)
             })
-        }),
-      )
-      .andThen(() => deps.rm(cloneDir))
+            .andThen(() => deps.rm(cloneDir))
+            .map(
+              () =>
+                ({ status: 'updated', oldSha, newSha }) satisfies UpdateResult,
+            )
+        })
+      })
   })
 }

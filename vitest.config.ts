@@ -3,11 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     globals: true,
-    include: [
-      'src/**/*.test.ts',
-      '.claude/skills/**/*.test.ts',
-      'scripts/**/*.test.ts',
-    ],
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
     coverage: {
       provider: 'istanbul',
       reporter: ['text', 'html', 'lcov', 'json-summary', 'json'],

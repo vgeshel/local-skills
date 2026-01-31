@@ -47,6 +47,22 @@ export interface MarketplaceConfig {
   }
 }
 
+/** Result of an update operation */
+export type UpdateResult =
+  | { status: 'updated'; oldSha: string; newSha: string }
+  | { status: 'already-up-to-date'; sha: string }
+  | { status: 'skipped-pinned'; sha: string }
+
+/** A single entry in local-skills-state.json */
+export interface StateFileEntry {
+  readonly contentHash: string
+}
+
+/** The full state file: .claude/local-skills-state.json */
+export interface StateFile {
+  readonly skills: Record<string, StateFileEntry>
+}
+
 /** All I/O operations injected as dependencies */
 export interface Deps {
   readonly exec: (

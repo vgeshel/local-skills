@@ -15,7 +15,7 @@ import {
 import { err } from 'neverthrow'
 import { localSkillsError } from '../lib/errors.js'
 import { createDefaultDeps } from '../lib/fs-ops.js'
-import { ManifestSchema } from '../lib/schemas.js'
+import { ManifestSchema, StateFileSchema } from '../lib/schemas.js'
 import type { Deps } from '../lib/types.js'
 import { add, marketplaceUrl, sourceLabel } from './add.js'
 
@@ -103,6 +103,23 @@ describe('add command', () => {
     )
     expect(manifest.skills.tdd.ref).toBe('HEAD')
     expect(manifest.skills.tdd.sha).toMatch(/^[a-f0-9]{40}$/)
+  })
+
+  it('writes content hash to state file after adding a skill', async () => {
+    await add(deps, projectDir, {
+      plugin: 'superpowers',
+      marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+      skill: 'tdd',
+      ref: undefined,
+    })
+
+    const stateContent = await fs.readFile(
+      path.join(projectDir, '.claude', 'local-skills-state.json'),
+      'utf-8',
+    )
+    const state = StateFileSchema.parse(JSON.parse(stateContent))
+    expect(state.skills.tdd).toBeDefined()
+    expect(state.skills.tdd.contentHash).toMatch(/^[a-f0-9]{64}$/)
   })
 
   it('adds all skills with wildcard', async () => {

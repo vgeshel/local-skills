@@ -7,6 +7,7 @@ export const ERROR_CODES = [
   'SKILL_NOT_FOUND',
   'SKILL_ALREADY_EXISTS',
   'SKILL_NOT_INSTALLED',
+  'SKILL_MODIFIED',
   'FS_ERROR',
   'EXEC_ERROR',
 ] as const
