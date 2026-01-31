@@ -207,8 +207,20 @@ describe('CLI command actions', () => {
   })
 
   describe('update action', () => {
-    it('updates a skill successfully', async () => {
-      // First install the skill (suppress output)
+    it('has a --force option', () => {
+      const program = createProgram()
+      const updateCmd = program.commands.find(
+        (c: Command) => c.name() === 'update',
+      )
+
+      expect(updateCmd).toBeDefined()
+      const forceOpt = updateCmd?.options.find(
+        (o: { long?: string }) => o.long === '--force',
+      )
+      expect(forceOpt).toBeDefined()
+    })
+
+    it('prints already-up-to-date message when no changes', async () => {
       vi.spyOn(console, 'log').mockImplementation(() => {})
       const setupProgram = createProgram({ deps, projectDir })
       await setupProgram.parseAsync([
@@ -223,7 +235,47 @@ describe('CLI command actions', () => {
       const program = createProgram({ deps, projectDir })
       await program.parseAsync(['node', 'local-skills', 'update', 'tdd'])
 
-      expect(logSpy).toHaveBeenCalledWith('Updated skill "tdd"')
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('already up to date'),
+      )
+    })
+
+    it('prints skipped-pinned message for SHA ref', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}/tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      // Rewrite manifest with a SHA ref
+      const manifestContent = await fs.readFile(
+        path.join(projectDir, '.claude', 'local-skills.json'),
+        'utf-8',
+      )
+      const manifest = ManifestSchema.parse(JSON.parse(manifestContent))
+      const sha = manifest.skills.tdd.sha
+      await fs.writeFile(
+        path.join(projectDir, '.claude', 'local-skills.json'),
+        JSON.stringify({
+          skills: {
+            tdd: {
+              source: manifest.skills.tdd.source,
+              ref: sha,
+              sha,
+            },
+          },
+        }),
+      )
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync(['node', 'local-skills', 'update', 'tdd'])
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('pinned'))
     })
 
     it('prints error when skill is not installed', async () => {

@@ -3,5 +3,6 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*", "bin/**/*", "scripts/**/*", ".claude/**/*"]
+  "include": ["src/**/*", "bin/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", ".claude/skills"]
 }

@@ -3,6 +3,12 @@ import type { ResultAsync } from 'neverthrow'
 import { localSkillsError, type LocalSkillsError } from './errors.js'
 import type { Deps } from './types.js'
 
+const SHA_RE = /^[a-f0-9]{40}$/
+
+export function isShaRef(ref: string): boolean {
+  return SHA_RE.test(ref)
+}
+
 export function cloneRepo(
   deps: Deps,
   url: string,

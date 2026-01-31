@@ -5,7 +5,7 @@ import * as path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createDefaultDeps } from './fs-ops.js'
-import { cloneRepo, getHeadSha } from './git.js'
+import { cloneRepo, getHeadSha, isShaRef } from './git.js'
 
 describe('git', () => {
   let fixtureRepo: string
@@ -45,6 +45,44 @@ describe('git', () => {
 
   afterAll(async () => {
     await fs.rm(fixtureRepo, { recursive: true, force: true })
+  })
+
+  describe('isShaRef', () => {
+    it('returns true for a 40-char lowercase hex string', () => {
+      expect(isShaRef('a'.repeat(40))).toBe(true)
+    })
+
+    it('returns true for a real-looking SHA', () => {
+      expect(isShaRef('abc123def456789012345678901234abcdef5678')).toBe(true)
+    })
+
+    it('returns false for a branch name', () => {
+      expect(isShaRef('main')).toBe(false)
+    })
+
+    it('returns false for HEAD', () => {
+      expect(isShaRef('HEAD')).toBe(false)
+    })
+
+    it('returns false for a tag', () => {
+      expect(isShaRef('v1.0.0')).toBe(false)
+    })
+
+    it('returns false for a 39-char hex string', () => {
+      expect(isShaRef('a'.repeat(39))).toBe(false)
+    })
+
+    it('returns false for a 41-char hex string', () => {
+      expect(isShaRef('a'.repeat(41))).toBe(false)
+    })
+
+    it('returns false for uppercase hex', () => {
+      expect(isShaRef('A'.repeat(40))).toBe(false)
+    })
+
+    it('returns false for non-hex characters', () => {
+      expect(isShaRef('g'.repeat(40))).toBe(false)
+    })
   })
 
   describe('cloneRepo', () => {

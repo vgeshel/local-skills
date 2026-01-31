@@ -16,11 +16,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.mts",
-    ".claude/skills/**/*.ts",
-    "scripts/**/*.ts"
-  ],
-  "exclude": ["node_modules"]
+  "include": ["**/*.ts", "**/*.mts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", ".claude/skills"]
 }

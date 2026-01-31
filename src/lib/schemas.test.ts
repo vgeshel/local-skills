@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { ManifestSchema, MarketplaceConfigSchema } from './schemas.js'
+import {
+  ManifestSchema,
+  MarketplaceConfigSchema,
+  StateFileSchema,
+} from './schemas.js'
 
 describe('schemas', () => {
   describe('ManifestSchema', () => {
@@ -102,6 +106,54 @@ describe('schemas', () => {
       }
 
       const result = ManifestSchema.safeParse(input)
+
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('StateFileSchema', () => {
+    it('parses a valid state file with one skill', () => {
+      const input = {
+        skills: {
+          tdd: { contentHash: 'abc123def456' },
+        },
+      }
+
+      const result = StateFileSchema.safeParse(input)
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.skills.tdd.contentHash).toBe('abc123def456')
+      }
+    })
+
+    it('parses an empty state file', () => {
+      const input = { skills: {} }
+
+      const result = StateFileSchema.safeParse(input)
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.skills).toEqual({})
+      }
+    })
+
+    it('rejects state file missing skills field', () => {
+      const input = {}
+
+      const result = StateFileSchema.safeParse(input)
+
+      expect(result.success).toBe(false)
+    })
+
+    it('rejects skill entry missing contentHash', () => {
+      const input = {
+        skills: {
+          tdd: {},
+        },
+      }
+
+      const result = StateFileSchema.safeParse(input)
 
       expect(result.success).toBe(false)
     })

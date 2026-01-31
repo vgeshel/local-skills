@@ -1,6 +1,7 @@
 import { errAsync, okAsync, type ResultAsync } from 'neverthrow'
 import * as path from 'node:path'
 
+import { computeContentHash } from '../lib/content-hash.js'
 import { localSkillsError, type LocalSkillsError } from '../lib/errors.js'
 import { cloneRepo, getHeadSha } from '../lib/git.js'
 import {
@@ -14,6 +15,7 @@ import {
   readMarketplace,
   resolvePluginDir,
 } from '../lib/marketplace.js'
+import { readState, writeState } from '../lib/state.js'
 import type { Deps, ParsedSpecifier } from '../lib/types.js'
 
 export function marketplaceUrl(spec: ParsedSpecifier): string {
@@ -159,12 +161,21 @@ function installSingleSkill(
       }
       return okAsync(result.value)
     })
-    .andThen((updated) =>
-      deps
+    .andThen((updated) => {
+      const statePath = path.join(claudeDir, 'local-skills-state.json')
+      return deps
         .mkdir(path.join(claudeDir, 'skills'))
         .andThen(() => deps.cp(skillSrcDir, skillDestDir))
-        .andThen(() => writeManifest(deps, manifestPath, updated)),
-    )
+        .andThen(() => computeContentHash(deps, skillDestDir))
+        .andThen((contentHash) =>
+          readState(deps, statePath).andThen((state) =>
+            writeState(deps, statePath, {
+              skills: { ...state.skills, [skillName]: { contentHash } },
+            }),
+          ),
+        )
+        .andThen(() => writeManifest(deps, manifestPath, updated))
+    })
 }
 
 function installAllSkills(

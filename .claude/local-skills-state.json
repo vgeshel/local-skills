@@ -1,0 +1,13 @@
+{
+  "skills": {
+    "systematic-debugging": {
+      "contentHash": "45019b204ee8aea42c2f13578e38daedd1e795b4fc899b24617f6bc55885f715"
+    },
+    "test-driven-development": {
+      "contentHash": "1977772ac4c51aa121fe68393099fd6fc73516dfc3083772342043860fed1b3c"
+    },
+    "verification-before-completion": {
+      "contentHash": "363a6828d12020555bfc8cb802237c8d97fdec3d457c06de693ae3137e313cbe"
+    }
+  }
+}

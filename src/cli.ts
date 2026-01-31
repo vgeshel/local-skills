@@ -57,8 +57,11 @@ export function createProgram(options?: ProgramOptions): Command {
     .command('update')
     .description('Update an installed skill to the latest version')
     .argument('<skill-name>', 'Name of the skill to update')
-    .action(async (skillName: string) => {
-      const result = await update(deps, projectDir, skillName)
+    .option('-f, --force', 'Overwrite locally modified skill files')
+    .action(async (skillName: string, opts: { force?: boolean }) => {
+      const result = await update(deps, projectDir, skillName, {
+        force: opts.force,
+      })
 
       if (result.isErr()) {
         console.error(formatError(result.error))
@@ -66,7 +69,21 @@ export function createProgram(options?: ProgramOptions): Command {
         return
       }
 
-      console.log(`Updated skill "${skillName}"`)
+      switch (result.value.status) {
+        case 'updated':
+          console.log(
+            `Updated skill "${skillName}" (${result.value.oldSha.slice(0, 7)} → ${result.value.newSha.slice(0, 7)})`,
+          )
+          break
+        case 'already-up-to-date':
+          console.log(`Skill "${skillName}" is already up to date`)
+          break
+        case 'skipped-pinned':
+          console.log(
+            `Skill "${skillName}" is pinned to a specific commit, skipping update`,
+          )
+          break
+      }
     })
 
   program

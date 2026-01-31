@@ -15,7 +15,7 @@ import {
 import { err } from 'neverthrow'
 import { localSkillsError } from '../lib/errors.js'
 import { createDefaultDeps } from '../lib/fs-ops.js'
-import { ManifestSchema } from '../lib/schemas.js'
+import { ManifestSchema, StateFileSchema } from '../lib/schemas.js'
 import type { Deps } from '../lib/types.js'
 import { add } from './add.js'
 import { update } from './update.js'
@@ -82,7 +82,26 @@ describe('update command', () => {
     await fs.rm(projectDir, { recursive: true, force: true })
   })
 
-  it('updates a skill when upstream has changed', async () => {
+  it('returns already-up-to-date when upstream has not changed', async () => {
+    const result = await update(deps, projectDir, 'tdd')
+
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.status).toBe('already-up-to-date')
+      if (result.value.status === 'already-up-to-date') {
+        expect(result.value.sha).toBe(initialSha)
+      }
+    }
+
+    // Verify the skill is still there
+    const skillContent = await fs.readFile(
+      path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
+      'utf-8',
+    )
+    expect(skillContent).toBe('# TDD v1')
+  })
+
+  it('returns updated when upstream has changed', async () => {
     // Make a change upstream
     await fs.writeFile(
       path.join(marketplaceRepo, 'skills', 'tdd', 'SKILL.md'),
@@ -94,6 +113,13 @@ describe('update command', () => {
     const result = await update(deps, projectDir, 'tdd')
 
     expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.status).toBe('updated')
+      if (result.value.status === 'updated') {
+        expect(result.value.oldSha).toBe(initialSha)
+        expect(result.value.newSha).not.toBe(initialSha)
+      }
+    }
 
     // Verify the skill file was updated
     const skillContent = await fs.readFile(
@@ -110,25 +136,173 @@ describe('update command', () => {
     const manifest = ManifestSchema.parse(JSON.parse(manifestContent))
     expect(manifest.skills.tdd.sha).not.toBe(initialSha)
 
+    // Verify state file was updated with new content hash
+    const stateContent = await fs.readFile(
+      path.join(projectDir, '.claude', 'local-skills-state.json'),
+      'utf-8',
+    )
+    const state = StateFileSchema.parse(JSON.parse(stateContent))
+    expect(state.skills.tdd.contentHash).toMatch(/^[a-f0-9]{64}$/)
+
     // Restore the repo to original state for other tests
     execSync('git reset --hard HEAD~1', { cwd: marketplaceRepo })
   })
 
-  it('succeeds even when upstream has not changed', async () => {
+  it('returns skipped-pinned when ref is a 40-char SHA', async () => {
+    // Rewrite manifest to have a SHA ref
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'local-skills.json'),
+      JSON.stringify({
+        skills: {
+          tdd: {
+            source: `superpowers@file://${marketplaceRepo}`,
+            ref: initialSha,
+            sha: initialSha,
+          },
+        },
+      }),
+    )
+
     const result = await update(deps, projectDir, 'tdd')
 
     expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.status).toBe('skipped-pinned')
+      if (result.value.status === 'skipped-pinned') {
+        expect(result.value.sha).toBe(initialSha)
+      }
+    }
+  })
 
-    // Verify the skill is still there
+  it('returns SKILL_MODIFIED when local files changed and no --force', async () => {
+    // Modify the installed skill locally
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
+      '# TDD - locally modified',
+    )
+
+    // Make an upstream change so there's something to update to
+    await fs.writeFile(
+      path.join(marketplaceRepo, 'skills', 'tdd', 'SKILL.md'),
+      '# TDD v2 - upstream',
+    )
+    execSync('git add -A', { cwd: marketplaceRepo })
+    execSync('git commit -m "update tdd"', { cwd: marketplaceRepo })
+
+    const result = await update(deps, projectDir, 'tdd')
+
+    expect(result.isErr()).toBe(true)
+    if (result.isErr()) {
+      expect(result.error.code).toBe('SKILL_MODIFIED')
+    }
+
+    // Restore repo
+    execSync('git reset --hard HEAD~1', { cwd: marketplaceRepo })
+  })
+
+  it('proceeds when local files changed with --force', async () => {
+    // Modify the installed skill locally
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
+      '# TDD - locally modified',
+    )
+
+    // Make an upstream change
+    await fs.writeFile(
+      path.join(marketplaceRepo, 'skills', 'tdd', 'SKILL.md'),
+      '# TDD v2 - forced update',
+    )
+    execSync('git add -A', { cwd: marketplaceRepo })
+    execSync('git commit -m "update tdd"', { cwd: marketplaceRepo })
+
+    const result = await update(deps, projectDir, 'tdd', { force: true })
+
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.status).toBe('updated')
+    }
+
+    // Verify the skill file was overwritten
     const skillContent = await fs.readFile(
       path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
       'utf-8',
     )
-    expect(skillContent).toBe('# TDD v1')
+    expect(skillContent).toBe('# TDD v2 - forced update')
+
+    // Restore repo
+    execSync('git reset --hard HEAD~1', { cwd: marketplaceRepo })
+  })
+
+  it('proceeds without modification check when state file is missing', async () => {
+    // Remove the state file to simulate a legacy install
+    await fs.rm(path.join(projectDir, '.claude', 'local-skills-state.json'), {
+      force: true,
+    })
+
+    // Modify the installed skill locally
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
+      '# TDD - locally modified',
+    )
+
+    // Make an upstream change
+    await fs.writeFile(
+      path.join(marketplaceRepo, 'skills', 'tdd', 'SKILL.md'),
+      '# TDD v2 - legacy update',
+    )
+    execSync('git add -A', { cwd: marketplaceRepo })
+    execSync('git commit -m "update tdd"', { cwd: marketplaceRepo })
+
+    const result = await update(deps, projectDir, 'tdd')
+
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.status).toBe('updated')
+    }
+
+    const skillContent = await fs.readFile(
+      path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
+      'utf-8',
+    )
+    expect(skillContent).toBe('# TDD v2 - legacy update')
+
+    // Restore repo
+    execSync('git reset --hard HEAD~1', { cwd: marketplaceRepo })
+  })
+
+  it('proceeds without modification check when skill has no entry in state file', async () => {
+    // Write a state file without the tdd skill
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'local-skills-state.json'),
+      JSON.stringify({ skills: {} }),
+    )
+
+    // Modify the installed skill locally
+    await fs.writeFile(
+      path.join(projectDir, '.claude', 'skills', 'tdd', 'SKILL.md'),
+      '# TDD - locally modified',
+    )
+
+    // Make an upstream change
+    await fs.writeFile(
+      path.join(marketplaceRepo, 'skills', 'tdd', 'SKILL.md'),
+      '# TDD v2 - no state entry',
+    )
+    execSync('git add -A', { cwd: marketplaceRepo })
+    execSync('git commit -m "update tdd"', { cwd: marketplaceRepo })
+
+    const result = await update(deps, projectDir, 'tdd')
+
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.status).toBe('updated')
+    }
+
+    // Restore repo
+    execSync('git reset --hard HEAD~1', { cwd: marketplaceRepo })
   })
 
   it('returns MARKETPLACE_PARSE_ERROR when source has no @ separator', async () => {
-    // Manually write a broken manifest entry
     await fs.writeFile(
       path.join(projectDir, '.claude', 'local-skills.json'),
       JSON.stringify({
@@ -165,8 +339,6 @@ describe('update command', () => {
   })
 
   it('updates from GitHub shorthand source', async () => {
-    // Write a manifest with a GitHub shorthand source that points to
-    // a nonexistent repo — verifies the GitHub URL path is hit
     await fs.writeFile(
       path.join(projectDir, '.claude', 'local-skills.json'),
       JSON.stringify({
@@ -182,7 +354,6 @@ describe('update command', () => {
 
     const result = await update(deps, projectDir, 'tdd')
 
-    // Should fail because the GitHub repo doesn't exist
     expect(result.isErr()).toBe(true)
     if (result.isErr()) {
       expect(result.error.code).toBe('CLONE_FAILED')
@@ -190,7 +361,6 @@ describe('update command', () => {
   })
 
   it('returns PLUGIN_NOT_FOUND when plugin name in manifest does not match marketplace', async () => {
-    // Modify manifest to have a wrong plugin name
     await fs.writeFile(
       path.join(projectDir, '.claude', 'local-skills.json'),
       JSON.stringify({

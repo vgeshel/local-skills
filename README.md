@@ -29,8 +29,14 @@ local-skills add my-plugin@https://gitlab.com/team/repo.git/my-skill
 ### Update a skill
 
 ```bash
+# Pull latest from upstream
 local-skills update tdd
+
+# Overwrite locally modified skill files
+local-skills update --force tdd
 ```
+
+If you've hand-edited installed skill files, `update` will refuse to overwrite them unless you pass `--force`. Skills pinned to a specific commit SHA are skipped automatically.
 
 ### Remove a skill
 
@@ -51,9 +57,13 @@ local-skills remove tdd
 | `skill`       | Skill name (or `*` for all)         |
 | `version`     | Optional git ref (tag, branch)      |
 
-## Manifest
+## Tracked Files
 
-Installed skills are tracked in `.claude/local-skills.json`:
+Both files are intended to be committed to git.
+
+### Manifest (`local-skills.json`)
+
+Declares what skills are installed and from where:
 
 ```json
 {
@@ -67,6 +77,20 @@ Installed skills are tracked in `.claude/local-skills.json`:
 }
 ```
 
+### State file (`local-skills-state.json`)
+
+Records what the skill files looked like at install time, so `update` can detect local modifications:
+
+```json
+{
+  "skills": {
+    "tdd": {
+      "contentHash": "45019b204ee8..."
+    }
+  }
+}
+```
+
 ## How It Works
 
 1. Parses the specifier to identify the plugin, marketplace, skill, and optional version
@@ -74,6 +98,13 @@ Installed skills are tracked in `.claude/local-skills.json`:
 3. Reads `.claude-plugin/marketplace.json` to find the plugin
 4. Copies the skill directory to `.claude/skills/<skill-name>/`
 5. Records the source, ref, and commit SHA in the manifest
+6. Computes a content hash of the installed files and stores it in the state file
+
+### Update behavior
+
+- **Pinned SHA** — if the `ref` in the manifest is a 40-character commit SHA, the skill is considered pinned and the update is skipped
+- **Local modification detection** — the content hash of the installed files is compared against the stored hash; if they differ, the update is refused unless `--force` is passed
+- **No state file** — if the state file is missing (e.g. from a pre-existing install), the modification check is skipped and the update proceeds unconditionally
 
 ## Development
 

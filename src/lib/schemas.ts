@@ -10,6 +10,10 @@ export const ManifestSchema = z.object({
   skills: z.record(z.string(), ManifestSkillEntrySchema),
 })
 
+export const StateFileSchema = z.object({
+  skills: z.record(z.string(), z.object({ contentHash: z.string() })),
+})
+
 const GitHubSourceSchema = z.object({
   source: z.literal('github'),
   repo: z.string(),
