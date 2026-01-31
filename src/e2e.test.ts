@@ -91,7 +91,7 @@ describe('end-to-end', () => {
   })
 
   function specifier(skill: string): string {
-    return `superpowers@file://${marketplaceRepo}/${skill}`
+    return `superpowers@file://${marketplaceRepo}:${skill}`
   }
 
   async function run(...args: string[]): Promise<void> {
@@ -257,7 +257,7 @@ describe('end-to-end', () => {
   })
 
   it('add rejects nonexistent plugin', async () => {
-    await run('add', `wrong-plugin@file://${marketplaceRepo}/tdd`)
+    await run('add', `wrong-plugin@file://${marketplaceRepo}:tdd`)
 
     expect(process.exitCode).toBe(1)
     expect(console.error).toHaveBeenCalledWith(

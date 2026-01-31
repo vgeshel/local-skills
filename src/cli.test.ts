@@ -108,7 +108,6 @@ describe('CLI command actions', () => {
     const tmpBase = await fs.mkdtemp(
       path.join(os.tmpdir(), 'local-skills-cli-marketplace-'),
     )
-    // The specifier parser splits URLs on ".git/" so the repo path must end with .git
     marketplaceRepo = path.join(tmpBase, 'repo.git')
     await fs.mkdir(marketplaceRepo, { recursive: true })
     execSync('git init', { cwd: marketplaceRepo })
@@ -164,7 +163,7 @@ describe('CLI command actions', () => {
         'node',
         'local-skills',
         'add',
-        `superpowers@file://${marketplaceRepo}/tdd`,
+        `superpowers@file://${marketplaceRepo}:tdd`,
       ])
 
       expect(logSpy).toHaveBeenCalledWith(
@@ -198,7 +197,7 @@ describe('CLI command actions', () => {
         'node',
         'local-skills',
         'add',
-        'superpowers@file:///nonexistent/repo.git/tdd',
+        'superpowers@file:///nonexistent/repo.git:tdd',
       ])
 
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error ['))
@@ -227,7 +226,7 @@ describe('CLI command actions', () => {
         'node',
         'local-skills',
         'add',
-        `superpowers@file://${marketplaceRepo}/tdd`,
+        `superpowers@file://${marketplaceRepo}:tdd`,
       ])
       vi.restoreAllMocks()
 
@@ -247,7 +246,7 @@ describe('CLI command actions', () => {
         'node',
         'local-skills',
         'add',
-        `superpowers@file://${marketplaceRepo}/tdd`,
+        `superpowers@file://${marketplaceRepo}:tdd`,
       ])
       vi.restoreAllMocks()
 
@@ -305,7 +304,7 @@ describe('CLI command actions', () => {
         'node',
         'local-skills',
         'add',
-        `superpowers@file://${marketplaceRepo}/tdd`,
+        `superpowers@file://${marketplaceRepo}:tdd`,
       ])
       vi.restoreAllMocks()
 
