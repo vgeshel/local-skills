@@ -1,25 +1,43 @@
 {
   "name": "local-skills",
   "version": "0.1.0",
-  "private": true,
+  "description": "CLI for installing and managing Claude Code skills from plugin marketplaces",
   "packageManager": "pnpm@10.28.2",
   "type": "module",
   "bin": {
-    "local-skills": "./bin/local-skills.ts"
+    "local-skills": "./dist/bin.js"
   },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vgeshel/local-skills.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "skills",
+    "cli"
+  ],
   "scripts": {
+    "build": "tsup",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest --no-file-parallelism",
     "test:run": "vitest run --no-file-parallelism",
     "test:coverage": "vitest run --coverage --no-file-parallelism",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "commander": "^14.0.2",
     "neverthrow": "^8.2.0",
-    "tsx": "^4.0.0",
     "zod": "^4.3.6"
   },
   "lint-staged": {
@@ -47,6 +65,8 @@
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
     "prettier-plugin-organize-imports": "^4.3.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.18"
