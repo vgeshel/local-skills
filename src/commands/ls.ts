@@ -2,7 +2,7 @@ import { errAsync, okAsync, type ResultAsync } from 'neverthrow'
 import * as path from 'node:path'
 
 import type { LocalSkillsError } from '../lib/errors.js'
-import { cloneRepo } from '../lib/git.js'
+import { localSkillsError } from '../lib/errors.js'
 import { readManifest } from '../lib/manifest.js'
 import {
   findPlugin,
@@ -10,6 +10,7 @@ import {
   readMarketplace,
   resolvePluginDir,
 } from '../lib/marketplace.js'
+import { withTempClone } from '../lib/temp-clone.js'
 import type { Deps } from '../lib/types.js'
 
 export interface LsEntry {
@@ -76,49 +77,38 @@ function lsRemoteMarketplace(
   marketplaceUrl: string,
   ref: string | undefined,
 ): ResultAsync<readonly LsEntry[], LocalSkillsError> {
-  const tmpResult = deps.tmpdir()
-
-  if (tmpResult.isErr()) {
-    return errAsync(tmpResult.error)
-  }
-
-  const tmpBase = tmpResult.value
-  const cloneDir = path.join(tmpBase, `local-skills-ls-${Date.now()}`)
-
-  return cloneRepo(deps, marketplaceUrl, cloneDir, ref)
-    .andThen(() => readMarketplace(deps, cloneDir))
-    .andThen((marketplace) => {
+  return withTempClone(deps, marketplaceUrl, ref, (cloneDir) =>
+    readMarketplace(deps, cloneDir).andThen((marketplace) => {
       let chain: ResultAsync<readonly LsEntry[], LocalSkillsError> = okAsync([])
 
       for (const plugin of marketplace.plugins) {
-        chain = chain.andThen((acc) => {
-          const dirResult = resolvePluginDir(
+        chain = chain.andThen((acc) =>
+          resolvePluginDir(
             plugin,
             cloneDir,
             marketplace.metadata?.pluginRoot,
-          )
-          const resolvedDir = dirResult._unsafeUnwrap()
+          ).asyncAndThen((resolvedDir) => {
+            // Skip plugins with remote sources (not resolvable from this clone)
+            if (!resolvedDir.startsWith('/')) {
+              return okAsync(acc)
+            }
 
-          // Only list skills from local paths (not remote URLs)
-          if (!resolvedDir.startsWith('/')) {
-            return okAsync(acc)
-          }
-
-          return listSkills(deps, resolvedDir).map((skills) => [
-            ...acc,
-            ...skills.map(
-              (name): LsEntry => ({
-                name,
-                plugin: plugin.name,
-              }),
-            ),
-          ])
-        })
+            return listSkills(deps, resolvedDir).map((skills) => [
+              ...acc,
+              ...skills.map(
+                (name): LsEntry => ({
+                  name,
+                  plugin: plugin.name,
+                }),
+              ),
+            ])
+          }),
+        )
       }
 
       return chain
-    })
-    .andThen((entries) => deps.rm(cloneDir).map(() => entries))
+    }),
+  )
 }
 
 function lsRemotePlugin(
@@ -127,46 +117,38 @@ function lsRemotePlugin(
   marketplaceUrl: string,
   ref: string | undefined,
 ): ResultAsync<readonly LsEntry[], LocalSkillsError> {
-  const tmpResult = deps.tmpdir()
-
-  if (tmpResult.isErr()) {
-    return errAsync(tmpResult.error)
-  }
-
-  const tmpBase = tmpResult.value
-  const cloneDir = path.join(tmpBase, `local-skills-ls-${Date.now()}`)
-
-  return cloneRepo(deps, marketplaceUrl, cloneDir, ref)
-    .andThen(() => readMarketplace(deps, cloneDir))
-    .andThen((marketplace) => {
+  return withTempClone(deps, marketplaceUrl, ref, (cloneDir) =>
+    readMarketplace(deps, cloneDir).andThen((marketplace) => {
       const pluginResult = findPlugin(marketplace, pluginName)
       if (pluginResult.isErr()) {
         return errAsync(pluginResult.error)
       }
       const plugin = pluginResult.value
 
-      const dirResult = resolvePluginDir(
+      return resolvePluginDir(
         plugin,
         cloneDir,
         marketplace.metadata?.pluginRoot,
-      )
-      const resolvedDir = dirResult._unsafeUnwrap()
+      ).asyncAndThen((resolvedDir) => {
+        // Plugin has a remote source — can't list skills from this clone
+        if (!resolvedDir.startsWith('/')) {
+          return errAsync(
+            localSkillsError(
+              'REMOTE_SOURCE',
+              `Plugin "${pluginName}" has a remote source and cannot be listed from this marketplace`,
+            ),
+          )
+        }
 
-      // For remote plugin sources, we would need a second clone
-      // which is out of scope; only handle local paths
-      if (!resolvedDir.startsWith('/')) {
-        const empty: readonly LsEntry[] = []
-        return okAsync(empty)
-      }
-
-      return listSkills(deps, resolvedDir).map((skills) =>
-        skills.map(
-          (name): LsEntry => ({
-            name,
-            plugin: pluginName,
-          }),
-        ),
-      )
-    })
-    .andThen((entries) => deps.rm(cloneDir).map(() => entries))
+        return listSkills(deps, resolvedDir).map((skills) =>
+          skills.map(
+            (name): LsEntry => ({
+              name,
+              plugin: pluginName,
+            }),
+          ),
+        )
+      })
+    }),
+  )
 }

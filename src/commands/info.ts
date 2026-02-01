@@ -4,13 +4,13 @@ import * as path from 'node:path'
 import type { LocalSkillsError } from '../lib/errors.js'
 import { localSkillsError } from '../lib/errors.js'
 import { parseFrontMatter } from '../lib/front-matter.js'
-import { cloneRepo } from '../lib/git.js'
 import { readManifest } from '../lib/manifest.js'
 import {
   findPlugin,
   readMarketplace,
   resolvePluginDir,
 } from '../lib/marketplace.js'
+import { withTempClone } from '../lib/temp-clone.js'
 import type { Deps } from '../lib/types.js'
 
 export interface InfoResult {
@@ -108,54 +108,43 @@ function infoRemote(
   skillName: string,
   ref: string | undefined,
 ): ResultAsync<InfoResult, LocalSkillsError> {
-  const tmpResult = deps.tmpdir()
-
-  if (tmpResult.isErr()) {
-    return errAsync(tmpResult.error)
-  }
-
-  const tmpBase = tmpResult.value
-  const cloneDir = path.join(tmpBase, `local-skills-info-${Date.now()}`)
-
-  return cloneRepo(deps, marketplaceUrl, cloneDir, ref)
-    .andThen(() => readMarketplace(deps, cloneDir))
-    .andThen((marketplace) => {
+  return withTempClone(deps, marketplaceUrl, ref, (cloneDir) =>
+    readMarketplace(deps, cloneDir).andThen((marketplace) => {
       const pluginResult = findPlugin(marketplace, pluginName)
       if (pluginResult.isErr()) {
         return errAsync(pluginResult.error)
       }
       const plugin = pluginResult.value
 
-      const dirResult = resolvePluginDir(
+      return resolvePluginDir(
         plugin,
         cloneDir,
         marketplace.metadata?.pluginRoot,
-      )
-      const resolvedDir = dirResult._unsafeUnwrap()
-
-      const skillMdPath = path.join(
-        resolvedDir,
-        'skills',
-        skillName,
-        'SKILL.md',
-      )
-
-      return deps
-        .readFile(skillMdPath)
-        .mapErr(() =>
-          localSkillsError(
-            'SKILL_NOT_FOUND',
-            `Skill "${skillName}" not found in plugin "${pluginName}"`,
-          ),
+      ).asyncAndThen((resolvedDir) => {
+        const skillMdPath = path.join(
+          resolvedDir,
+          'skills',
+          skillName,
+          'SKILL.md',
         )
-        .map((content) => {
-          const { data } = parseFrontMatter(content)
-          const result: InfoResult = {
-            name: skillName,
-            frontMatter: data,
-          }
-          return result
-        })
-    })
-    .andThen((result) => deps.rm(cloneDir).map(() => result))
+
+        return deps
+          .readFile(skillMdPath)
+          .mapErr(() =>
+            localSkillsError(
+              'SKILL_NOT_FOUND',
+              `Skill "${skillName}" not found in plugin "${pluginName}"`,
+            ),
+          )
+          .map((content) => {
+            const { data } = parseFrontMatter(content)
+            const result: InfoResult = {
+              name: skillName,
+              frontMatter: data,
+            }
+            return result
+          })
+      })
+    }),
+  )
 }

@@ -36,6 +36,7 @@ describe('errors', () => {
         'SKILL_ALREADY_EXISTS',
         'SKILL_NOT_INSTALLED',
         'SKILL_MODIFIED',
+        'REMOTE_SOURCE',
         'FS_ERROR',
         'EXEC_ERROR',
       ]

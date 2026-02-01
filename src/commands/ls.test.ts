@@ -258,7 +258,7 @@ describe('ls command', () => {
       }
     })
 
-    it('returns empty list for plugin with remote source', async () => {
+    it('returns REMOTE_SOURCE error for plugin with remote source', async () => {
       const remoteParent = await fs.mkdtemp(
         path.join(os.tmpdir(), 'local-skills-ls-remote-plugin-'),
       )
@@ -292,9 +292,9 @@ describe('ls command', () => {
           ref: undefined,
         })
 
-        expect(result.isOk()).toBe(true)
-        if (result.isOk()) {
-          expect(result.value).toEqual([])
+        expect(result.isErr()).toBe(true)
+        if (result.isErr()) {
+          expect(result.error.code).toBe('REMOTE_SOURCE')
         }
       } finally {
         await fs.rm(remoteParent, { recursive: true, force: true })
