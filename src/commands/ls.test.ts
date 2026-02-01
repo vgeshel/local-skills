@@ -209,6 +209,61 @@ describe('ls command', () => {
         expect(result.error.code).toBe('CLONE_FAILED')
       }
     })
+
+    it('skips plugins that have no skills directory', async () => {
+      const mktParent = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'local-skills-ls-noskills-'),
+      )
+      const mktRepo = path.join(mktParent, 'mkt.git')
+      await fs.mkdir(mktRepo, { recursive: true })
+      execSync('git init', { cwd: mktRepo })
+      execSync('git config user.email "test@test.com"', { cwd: mktRepo })
+      execSync('git config user.name "Test"', { cwd: mktRepo })
+
+      const pluginDir = path.join(mktRepo, '.claude-plugin')
+      await fs.mkdir(pluginDir, { recursive: true })
+      await fs.writeFile(
+        path.join(pluginDir, 'marketplace.json'),
+        JSON.stringify({
+          plugins: [
+            { name: 'has-skills', source: '.' },
+            { name: 'no-skills', source: './plugins/lsp' },
+          ],
+        }),
+      )
+
+      // has-skills plugin has a skills/ dir
+      const skillDir = path.join(mktRepo, 'skills', 'my-skill')
+      await fs.mkdir(skillDir, { recursive: true })
+      await fs.writeFile(path.join(skillDir, 'SKILL.md'), '# Skill')
+
+      // no-skills plugin directory exists but has no skills/ subdirectory
+      await fs.mkdir(path.join(mktRepo, 'plugins', 'lsp'), { recursive: true })
+      await fs.writeFile(
+        path.join(mktRepo, 'plugins', 'lsp', 'README.md'),
+        '# LSP Plugin',
+      )
+
+      execSync('git add -A', { cwd: mktRepo })
+      execSync('git commit -m "initial"', { cwd: mktRepo })
+
+      try {
+        const result = await ls(deps, projectDir, {
+          type: 'remote-marketplace',
+          marketplaceUrl: `file://${mktRepo}`,
+          ref: undefined,
+        })
+
+        expect(result.isOk()).toBe(true)
+        if (result.isOk()) {
+          expect(result.value).toHaveLength(1)
+          expect(result.value[0].name).toBe('my-skill')
+          expect(result.value[0].plugin).toBe('has-skills')
+        }
+      } finally {
+        await fs.rm(mktParent, { recursive: true, force: true })
+      }
+    })
   })
 
   describe('ls remote plugin', () => {

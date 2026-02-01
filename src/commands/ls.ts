@@ -93,15 +93,17 @@ function lsRemoteMarketplace(
               return okAsync(acc)
             }
 
-            return listSkills(deps, resolvedDir).map((skills) => [
-              ...acc,
-              ...skills.map(
-                (name): LsEntry => ({
-                  name,
-                  plugin: plugin.name,
-                }),
-              ),
-            ])
+            return listSkills(deps, resolvedDir)
+              .map((skills) => [
+                ...acc,
+                ...skills.map(
+                  (name): LsEntry => ({
+                    name,
+                    plugin: plugin.name,
+                  }),
+                ),
+              ])
+              .orElse(() => okAsync(acc))
           }),
         )
       }
