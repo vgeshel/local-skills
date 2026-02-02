@@ -167,10 +167,9 @@ export function createProgram(options?: ProgramOptions): Command {
 
       for (const entry of result.value) {
         const specifier = `${entry.source}:${entry.name}`
+        console.log(specifier)
         if (opts.long && entry.description) {
-          console.log(`${specifier}  ${entry.description}`)
-        } else {
-          console.log(specifier)
+          console.log(`  ${entry.description}`)
         }
       }
     })

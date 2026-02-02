@@ -421,9 +421,8 @@ describe('CLI command actions', () => {
       const program = createProgram({ deps, projectDir })
       await program.parseAsync(['node', 'local-skills', 'ls', '-l'])
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('A great skill'),
-      )
+      expect(logSpy).toHaveBeenCalledWith('p@test:my-skill')
+      expect(logSpy).toHaveBeenCalledWith('  A great skill')
     })
 
     it('lists remote marketplace skills', async () => {
