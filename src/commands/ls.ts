@@ -3,6 +3,7 @@ import * as path from 'node:path'
 
 import type { LocalSkillsError } from '../lib/errors.js'
 import { localSkillsError } from '../lib/errors.js'
+import { parseFrontMatter } from '../lib/front-matter.js'
 import { readManifest } from '../lib/manifest.js'
 import {
   findPlugin,
@@ -12,11 +13,16 @@ import {
 } from '../lib/marketplace.js'
 import { withTempClone } from '../lib/temp-clone.js'
 import type { Deps } from '../lib/types.js'
+import { formatSourceLabel } from './add.js'
 
 export interface LsEntry {
   readonly name: string
-  readonly source?: string
-  readonly plugin?: string
+  readonly source: string
+  readonly description?: string
+}
+
+export interface LsOptions {
+  readonly long?: boolean
 }
 
 export type LsQuery =
@@ -37,13 +43,19 @@ export function ls(
   deps: Deps,
   projectDir: string,
   query: LsQuery,
+  options?: LsOptions,
 ): ResultAsync<readonly LsEntry[], LocalSkillsError> {
   switch (query.type) {
     case 'installed': {
-      return lsInstalled(deps, projectDir)
+      return lsInstalled(deps, projectDir, options?.long)
     }
     case 'remote-marketplace': {
-      return lsRemoteMarketplace(deps, query.marketplaceUrl, query.ref)
+      return lsRemoteMarketplace(
+        deps,
+        query.marketplaceUrl,
+        query.ref,
+        options?.long,
+      )
     }
     case 'remote-plugin': {
       return lsRemotePlugin(
@@ -51,31 +63,73 @@ export function ls(
         query.pluginName,
         query.marketplaceUrl,
         query.ref,
+        options?.long,
       )
     }
   }
 }
 
+function readDescription(
+  deps: Deps,
+  skillMdPath: string,
+): ResultAsync<string | undefined, LocalSkillsError> {
+  return deps
+    .readFile(skillMdPath)
+    .map((content) => {
+      const { data } = parseFrontMatter(content)
+      return typeof data.description === 'string' ? data.description : undefined
+    })
+    .orElse(() => okAsync(undefined))
+}
+
 function lsInstalled(
   deps: Deps,
   projectDir: string,
+  long: boolean | undefined,
 ): ResultAsync<readonly LsEntry[], LocalSkillsError> {
   const manifestPath = path.join(projectDir, '.claude', 'local-skills.json')
 
-  return readManifest(deps, manifestPath).map((manifest) =>
-    Object.entries(manifest.skills).map(
-      ([name, entry]): LsEntry => ({
-        name,
-        source: entry.source,
-      }),
-    ),
-  )
+  return readManifest(deps, manifestPath).andThen((manifest) => {
+    const entries = Object.entries(manifest.skills)
+
+    if (!long) {
+      return okAsync(
+        entries.map(
+          ([name, entry]): LsEntry => ({
+            name,
+            source: entry.source,
+          }),
+        ),
+      )
+    }
+
+    let chain: ResultAsync<readonly LsEntry[], LocalSkillsError> = okAsync([])
+
+    for (const [name, entry] of entries) {
+      chain = chain.andThen((acc) => {
+        const skillMdPath = path.join(
+          projectDir,
+          '.claude',
+          'skills',
+          name,
+          'SKILL.md',
+        )
+        return readDescription(deps, skillMdPath).map((description) => [
+          ...acc,
+          { name, source: entry.source, description },
+        ])
+      })
+    }
+
+    return chain
+  })
 }
 
 function lsRemoteMarketplace(
   deps: Deps,
   marketplaceUrl: string,
   ref: string | undefined,
+  long: boolean | undefined,
 ): ResultAsync<readonly LsEntry[], LocalSkillsError> {
   return withTempClone(deps, marketplaceUrl, ref, (cloneDir) =>
     readMarketplace(deps, cloneDir).andThen((marketplace) => {
@@ -93,16 +147,37 @@ function lsRemoteMarketplace(
               return okAsync(acc)
             }
 
+            const source = formatSourceLabel(plugin.name, marketplaceUrl)
+
             return listSkills(deps, resolvedDir)
-              .map((skills) => [
-                ...acc,
-                ...skills.map(
-                  (name): LsEntry => ({
-                    name,
-                    plugin: plugin.name,
-                  }),
-                ),
-              ])
+              .andThen((skills) => {
+                if (!long) {
+                  return okAsync([
+                    ...acc,
+                    ...skills.map((name): LsEntry => ({ name, source })),
+                  ])
+                }
+
+                let inner: ResultAsync<readonly LsEntry[], LocalSkillsError> =
+                  okAsync(acc)
+                for (const name of skills) {
+                  inner = inner.andThen((innerAcc) => {
+                    const skillMdPath = path.join(
+                      resolvedDir,
+                      'skills',
+                      name,
+                      'SKILL.md',
+                    )
+                    return readDescription(deps, skillMdPath).map(
+                      (description) => [
+                        ...innerAcc,
+                        { name, source, description },
+                      ],
+                    )
+                  })
+                }
+                return inner
+              })
               .orElse(() => okAsync(acc))
           }),
         )
@@ -118,6 +193,7 @@ function lsRemotePlugin(
   pluginName: string,
   marketplaceUrl: string,
   ref: string | undefined,
+  long: boolean | undefined,
 ): ResultAsync<readonly LsEntry[], LocalSkillsError> {
   return withTempClone(deps, marketplaceUrl, ref, (cloneDir) =>
     readMarketplace(deps, cloneDir).andThen((marketplace) => {
@@ -142,14 +218,31 @@ function lsRemotePlugin(
           )
         }
 
-        return listSkills(deps, resolvedDir).map((skills) =>
-          skills.map(
-            (name): LsEntry => ({
-              name,
-              plugin: pluginName,
-            }),
-          ),
-        )
+        const source = formatSourceLabel(pluginName, marketplaceUrl)
+
+        return listSkills(deps, resolvedDir).andThen((skills) => {
+          if (!long) {
+            return okAsync(skills.map((name): LsEntry => ({ name, source })))
+          }
+
+          let chain: ResultAsync<readonly LsEntry[], LocalSkillsError> =
+            okAsync([])
+          for (const name of skills) {
+            chain = chain.andThen((acc) => {
+              const skillMdPath = path.join(
+                resolvedDir,
+                'skills',
+                name,
+                'SKILL.md',
+              )
+              return readDescription(deps, skillMdPath).map((description) => [
+                ...acc,
+                { name, source, description },
+              ])
+            })
+          }
+          return chain
+        })
       })
     }),
   )

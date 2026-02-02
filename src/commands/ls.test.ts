@@ -102,6 +102,109 @@ describe('ls command', () => {
         expect(result.value[0].source).toContain('superpowers@')
       }
     })
+
+    it('includes description in long mode for installed skill', async () => {
+      await add(deps, projectDir, {
+        plugin: 'superpowers',
+        marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+        skill: 'tdd',
+        ref: undefined,
+      })
+
+      const result = await ls(
+        deps,
+        projectDir,
+        { type: 'installed' },
+        { long: true },
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(1)
+        expect(result.value[0].description).toBeUndefined()
+      }
+    })
+
+    it('returns undefined description when SKILL.md is missing in long mode', async () => {
+      const skillDir = path.join(projectDir, '.claude', 'skills', 'no-md')
+      await fs.mkdir(skillDir, { recursive: true })
+      await fs.writeFile(path.join(skillDir, 'helper.sh'), '#!/bin/bash')
+      await fs.writeFile(
+        path.join(projectDir, '.claude', 'local-skills.json'),
+        JSON.stringify({
+          skills: {
+            'no-md': { source: 'p@test', ref: 'HEAD', sha: 'abc' },
+          },
+        }),
+      )
+
+      const result = await ls(
+        deps,
+        projectDir,
+        { type: 'installed' },
+        { long: true },
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value).toHaveLength(1)
+        expect(result.value[0].description).toBeUndefined()
+      }
+    })
+
+    it('returns description from SKILL.md front matter in long mode', async () => {
+      // Manually create a skill with front matter
+      const skillDir = path.join(projectDir, '.claude', 'skills', 'my-skill')
+      await fs.mkdir(skillDir, { recursive: true })
+      await fs.writeFile(
+        path.join(skillDir, 'SKILL.md'),
+        '---\ndescription: A great skill\n---\n# My Skill',
+      )
+      await fs.writeFile(
+        path.join(projectDir, '.claude', 'local-skills.json'),
+        JSON.stringify({
+          skills: {
+            'my-skill': { source: 'p@test', ref: 'HEAD', sha: 'abc' },
+          },
+        }),
+      )
+
+      const result = await ls(
+        deps,
+        projectDir,
+        { type: 'installed' },
+        { long: true },
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value[0].description).toBe('A great skill')
+      }
+    })
+
+    it('omits description in default (non-long) mode', async () => {
+      const skillDir = path.join(projectDir, '.claude', 'skills', 'my-skill')
+      await fs.mkdir(skillDir, { recursive: true })
+      await fs.writeFile(
+        path.join(skillDir, 'SKILL.md'),
+        '---\ndescription: A great skill\n---\n# My Skill',
+      )
+      await fs.writeFile(
+        path.join(projectDir, '.claude', 'local-skills.json'),
+        JSON.stringify({
+          skills: {
+            'my-skill': { source: 'p@test', ref: 'HEAD', sha: 'abc' },
+          },
+        }),
+      )
+
+      const result = await ls(deps, projectDir, { type: 'installed' })
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value[0].description).toBeUndefined()
+      }
+    })
   })
 
   describe('ls remote marketplace', () => {
@@ -121,7 +224,7 @@ describe('ls command', () => {
       }
     })
 
-    it('includes plugin name in entries', async () => {
+    it('includes source label in entries', async () => {
       const result = await ls(deps, projectDir, {
         type: 'remote-marketplace',
         marketplaceUrl: `file://${marketplaceRepo}`,
@@ -130,9 +233,30 @@ describe('ls command', () => {
 
       expect(result.isOk()).toBe(true)
       if (result.isOk()) {
-        const plugins = result.value.map((s) => s.plugin)
-        expect(plugins).toContain('superpowers')
-        expect(plugins).toContain('other-plugin')
+        const sources = result.value.map((s) => s.source)
+        expect(sources).toContain(`superpowers@file://${marketplaceRepo}`)
+        expect(sources).toContain(`other-plugin@file://${marketplaceRepo}`)
+      }
+    })
+
+    it('includes descriptions in long mode', async () => {
+      const result = await ls(
+        deps,
+        projectDir,
+        {
+          type: 'remote-marketplace',
+          marketplaceUrl: `file://${marketplaceRepo}`,
+          ref: undefined,
+        },
+        { long: true },
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        // The test marketplace SKILL.md files have no front matter, so descriptions are undefined
+        for (const entry of result.value) {
+          expect(entry.description).toBeUndefined()
+        }
       }
     })
 
@@ -258,7 +382,7 @@ describe('ls command', () => {
         if (result.isOk()) {
           expect(result.value).toHaveLength(1)
           expect(result.value[0].name).toBe('my-skill')
-          expect(result.value[0].plugin).toBe('has-skills')
+          expect(result.value[0].source).toContain('has-skills@')
         }
       } finally {
         await fs.rm(mktParent, { recursive: true, force: true })
@@ -297,7 +421,7 @@ describe('ls command', () => {
       }
     })
 
-    it('includes plugin name in entries', async () => {
+    it('includes source label in entries', async () => {
       const result = await ls(deps, projectDir, {
         type: 'remote-plugin',
         pluginName: 'superpowers',
@@ -308,7 +432,29 @@ describe('ls command', () => {
       expect(result.isOk()).toBe(true)
       if (result.isOk()) {
         for (const entry of result.value) {
-          expect(entry.plugin).toBe('superpowers')
+          expect(entry.source).toBe(`superpowers@file://${marketplaceRepo}`)
+        }
+      }
+    })
+
+    it('includes descriptions in long mode for remote plugin', async () => {
+      const result = await ls(
+        deps,
+        projectDir,
+        {
+          type: 'remote-plugin',
+          pluginName: 'superpowers',
+          marketplaceUrl: `file://${marketplaceRepo}`,
+          ref: undefined,
+        },
+        { long: true },
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        // The test marketplace SKILL.md files have no front matter, so descriptions are undefined
+        for (const entry of result.value) {
+          expect(entry.description).toBeUndefined()
         }
       }
     })

@@ -112,7 +112,8 @@ export function createProgram(options?: ProgramOptions): Command {
     .command('ls')
     .description('List skills (installed or from a marketplace)')
     .argument('[source]', 'marketplace or plugin@marketplace[:version]')
-    .action(async (source: string | undefined) => {
+    .option('-l, --long', 'Show descriptions from SKILL.md front matter')
+    .action(async (source: string | undefined, opts: { long?: boolean }) => {
       let query: LsQuery
 
       if (source === undefined) {
@@ -149,7 +150,9 @@ export function createProgram(options?: ProgramOptions): Command {
         }
       }
 
-      const result = await ls(deps, projectDir, query)
+      const result = await ls(deps, projectDir, query, {
+        long: opts.long,
+      })
 
       if (result.isErr()) {
         console.error(formatError(result.error))
@@ -163,10 +166,12 @@ export function createProgram(options?: ProgramOptions): Command {
       }
 
       for (const entry of result.value) {
-        const parts = [entry.name]
-        if (entry.plugin) parts.push(`(${entry.plugin})`)
-        if (entry.source) parts.push(`from ${entry.source}`)
-        console.log(parts.join(' '))
+        const specifier = `${entry.source}:${entry.name}`
+        if (opts.long && entry.description) {
+          console.log(`${specifier}  ${entry.description}`)
+        } else {
+          console.log(specifier)
+        }
       }
     })
 

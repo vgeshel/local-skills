@@ -380,7 +380,7 @@ describe('CLI command actions', () => {
       expect(logSpy).toHaveBeenCalledWith('No skills found')
     })
 
-    it('lists installed skills after adding one', async () => {
+    it('lists installed skills in specifier format', async () => {
       vi.spyOn(console, 'log').mockImplementation(() => {})
       const setupProgram = createProgram({ deps, projectDir })
       await setupProgram.parseAsync([
@@ -395,7 +395,35 @@ describe('CLI command actions', () => {
       const program = createProgram({ deps, projectDir })
       await program.parseAsync(['node', 'local-skills', 'ls'])
 
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('tdd'))
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/superpowers@.+:tdd$/),
+      )
+    })
+
+    it('shows description with -l flag', async () => {
+      // Manually create skill with description in front matter
+      const skillDir = path.join(projectDir, '.claude', 'skills', 'my-skill')
+      await fs.mkdir(skillDir, { recursive: true })
+      await fs.writeFile(
+        path.join(skillDir, 'SKILL.md'),
+        '---\ndescription: A great skill\n---\n# My Skill',
+      )
+      await fs.writeFile(
+        path.join(projectDir, '.claude', 'local-skills.json'),
+        JSON.stringify({
+          skills: {
+            'my-skill': { source: 'p@test', ref: 'HEAD', sha: 'abc' },
+          },
+        }),
+      )
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync(['node', 'local-skills', 'ls', '-l'])
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('A great skill'),
+      )
     })
 
     it('lists remote marketplace skills', async () => {

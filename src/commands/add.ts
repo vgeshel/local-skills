@@ -32,6 +32,19 @@ export function sourceLabel(spec: ParsedSpecifier): string {
   return `${spec.plugin}@${spec.marketplace.url}`
 }
 
+const GITHUB_URL_RE = /^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/
+
+export function formatSourceLabel(
+  pluginName: string,
+  marketplaceUrl: string,
+): string {
+  const match = GITHUB_URL_RE.exec(marketplaceUrl)
+  if (match) {
+    return `${pluginName}@${match[1]}/${match[2]}`
+  }
+  return `${pluginName}@${marketplaceUrl}`
+}
+
 export function add(
   deps: Deps,
   projectDir: string,
