@@ -91,7 +91,7 @@ describe('end-to-end', () => {
   })
 
   function specifier(skill: string): string {
-    return `superpowers@file://${marketplaceRepo}/${skill}`
+    return `superpowers@file://${marketplaceRepo}:${skill}`
   }
 
   async function run(...args: string[]): Promise<void> {
@@ -257,7 +257,7 @@ describe('end-to-end', () => {
   })
 
   it('add rejects nonexistent plugin', async () => {
-    await run('add', `wrong-plugin@file://${marketplaceRepo}/tdd`)
+    await run('add', `wrong-plugin@file://${marketplaceRepo}:tdd`)
 
     expect(process.exitCode).toBe(1)
     expect(console.error).toHaveBeenCalledWith(
@@ -327,6 +327,55 @@ describe('end-to-end', () => {
 
     // Restore repo
     execSync('git reset --hard HEAD~1', { cwd: marketplaceRepo })
+  })
+
+  it('ls lists installed skills', async () => {
+    await run('add', specifier('tdd'))
+
+    await run('ls')
+
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('tdd'))
+  })
+
+  it('ls lists remote marketplace skills', async () => {
+    await run('ls', `file://${marketplaceRepo}`)
+
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('tdd'))
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('debug'))
+  })
+
+  it('ls lists remote plugin skills', async () => {
+    await run('ls', `superpowers@file://${marketplaceRepo}`)
+
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('tdd'))
+  })
+
+  it('info shows installed skill details', async () => {
+    await run('add', specifier('tdd'))
+
+    await run('info', 'tdd')
+
+    expect(console.log).toHaveBeenCalledWith(
+      expect.stringContaining('Skill: tdd'),
+    )
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Source:'))
+  })
+
+  it('info shows remote skill details', async () => {
+    await run('info', specifier('tdd'))
+
+    expect(console.log).toHaveBeenCalledWith(
+      expect.stringContaining('Skill: tdd'),
+    )
+  })
+
+  it('info rejects nonexistent installed skill', async () => {
+    await run('info', 'nonexistent')
+
+    expect(process.exitCode).toBe(1)
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('SKILL_NOT_INSTALLED'),
+    )
   })
 
   it('pinned SHA lifecycle: add with SHA ref → update skipped', async () => {

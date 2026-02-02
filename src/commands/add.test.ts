@@ -17,7 +17,7 @@ import { localSkillsError } from '../lib/errors.js'
 import { createDefaultDeps } from '../lib/fs-ops.js'
 import { ManifestSchema, StateFileSchema } from '../lib/schemas.js'
 import type { Deps } from '../lib/types.js'
-import { add, marketplaceUrl, sourceLabel } from './add.js'
+import { add, formatSourceLabel, marketplaceUrl, sourceLabel } from './add.js'
 
 describe('add command', () => {
   let marketplaceRepo: string
@@ -267,6 +267,41 @@ describe('add command', () => {
     })
   })
 
+  describe('formatSourceLabel', () => {
+    it('returns plugin@owner/repo for GitHub HTTPS URL', () => {
+      const label = formatSourceLabel(
+        'superpowers',
+        'https://github.com/anthropics/claude-plugins-official.git',
+      )
+
+      expect(label).toBe('superpowers@anthropics/claude-plugins-official')
+    })
+
+    it('strips .git suffix from GitHub URL', () => {
+      const label = formatSourceLabel('sp', 'https://github.com/owner/repo.git')
+
+      expect(label).toBe('sp@owner/repo')
+    })
+
+    it('handles GitHub URL without .git suffix', () => {
+      const label = formatSourceLabel('sp', 'https://github.com/owner/repo')
+
+      expect(label).toBe('sp@owner/repo')
+    })
+
+    it('returns plugin@url for non-GitHub URLs', () => {
+      const label = formatSourceLabel('p', 'https://gitlab.com/team/repo.git')
+
+      expect(label).toBe('p@https://gitlab.com/team/repo.git')
+    })
+
+    it('returns plugin@url for file:// URLs', () => {
+      const label = formatSourceLabel('p', 'file:///tmp/repo')
+
+      expect(label).toBe('p@file:///tmp/repo')
+    })
+  })
+
   it('adds a skill from a marketplace with remote plugin source', async () => {
     // Create a plugin repo separate from the marketplace
     const pluginRepo = await fs.mkdtemp(
@@ -348,6 +383,21 @@ describe('add command', () => {
     expect(result.isErr()).toBe(true)
     if (result.isErr()) {
       expect(result.error.code).toBe('FS_ERROR')
+    }
+  })
+
+  it('rejects undefined skill', async () => {
+    const result = await add(deps, projectDir, {
+      plugin: 'superpowers',
+      marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+      skill: undefined,
+      ref: undefined,
+    })
+
+    expect(result.isErr()).toBe(true)
+    if (result.isErr()) {
+      expect(result.error.code).toBe('INVALID_SPECIFIER')
+      expect(result.error.message).toContain('Skill name is required')
     }
   })
 

@@ -2,11 +2,11 @@ import type { Result, ResultAsync } from 'neverthrow'
 
 import type { LocalSkillsError } from './errors.js'
 
-/** Parsed CLI specifier: plugin@marketplace/skill:version */
+/** Parsed CLI specifier: plugin@marketplace[:version]:skill */
 export interface ParsedSpecifier {
   readonly plugin: string
   readonly marketplace: MarketplaceRef
-  readonly skill: string // '*' for all skills
+  readonly skill: string | undefined // '*' for all skills, undefined for partial specifiers
   readonly ref: string | undefined // git ref (tag, branch), undefined = default branch
 }
 
