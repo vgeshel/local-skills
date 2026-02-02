@@ -1,6 +1,8 @@
 # local-skills
 
-Extract individual skills from Claude Code plugin marketplaces and copy them into your project's `.claude/skills/` directory. Each project gets a curated, version-controlled set of skills.
+Claude skills (also used by other coding tools) are distributed via [plugins](https://code.claude.com/docs/en/discover-plugins#install-plugins) and normally installed in ~/.claude. This leads to each contributor to a project, or even each machine, having a different set of skills.
+
+This little utility helps you install skills from Claude Code plugin marketplaces into your project's `.claude/skills/` directory. Each project gets a curated, version-controlled set of skills.
 
 ## Installation
 
