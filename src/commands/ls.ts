@@ -39,34 +39,49 @@ export type LsQuery =
       readonly ref: string | undefined
     }
 
+function sortEntries(entries: readonly LsEntry[]): readonly LsEntry[] {
+  return [...entries].sort((a, b) =>
+    a.source !== b.source
+      ? a.source.localeCompare(b.source)
+      : a.name.localeCompare(b.name),
+  )
+}
+
 export function ls(
   deps: Deps,
   projectDir: string,
   query: LsQuery,
   options?: LsOptions,
 ): ResultAsync<readonly LsEntry[], LocalSkillsError> {
+  let result: ResultAsync<readonly LsEntry[], LocalSkillsError>
+
   switch (query.type) {
     case 'installed': {
-      return lsInstalled(deps, projectDir, options?.long)
+      result = lsInstalled(deps, projectDir, options?.long)
+      break
     }
     case 'remote-marketplace': {
-      return lsRemoteMarketplace(
+      result = lsRemoteMarketplace(
         deps,
         query.marketplaceUrl,
         query.ref,
         options?.long,
       )
+      break
     }
     case 'remote-plugin': {
-      return lsRemotePlugin(
+      result = lsRemotePlugin(
         deps,
         query.pluginName,
         query.marketplaceUrl,
         query.ref,
         options?.long,
       )
+      break
     }
   }
+
+  return result.map(sortEntries)
 }
 
 function readDescription(

@@ -224,6 +224,21 @@ describe('ls command', () => {
       }
     })
 
+    it('sorts results by source then by name', async () => {
+      const result = await ls(deps, projectDir, {
+        type: 'remote-marketplace',
+        marketplaceUrl: `file://${marketplaceRepo}`,
+        ref: undefined,
+      })
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        const labels = result.value.map((e) => `${e.source}:${e.name}`)
+        const sorted = [...labels].sort()
+        expect(labels).toEqual(sorted)
+      }
+    })
+
     it('includes source label in entries', async () => {
       const result = await ls(deps, projectDir, {
         type: 'remote-marketplace',
