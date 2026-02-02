@@ -20,6 +20,12 @@ The tool must be installed from npm before use:
 npm install -g local-skills
 ```
 
+Or you can install per-project:
+
+```bash
+npm install --save-dev local-skills
+```
+
 Verify installation:
 
 ```bash
