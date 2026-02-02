@@ -132,6 +132,39 @@ describe('parseSpecifier', () => {
       }
     })
 
+    it('parses URL with port number', () => {
+      const result = parseSpecifier(
+        'plugin@https://gitlab.example.com:8443/team/repo.git:tdd',
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.plugin).toBe('plugin')
+        expect(result.value.marketplace).toEqual({
+          type: 'url',
+          url: 'https://gitlab.example.com:8443/team/repo.git',
+        })
+        expect(result.value.skill).toBe('tdd')
+        expect(result.value.ref).toBeUndefined()
+      }
+    })
+
+    it('parses URL with port, version, and skill', () => {
+      const result = parseSpecifier(
+        'plugin@https://gitlab.example.com:8443/team/repo.git:v2:tdd',
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.marketplace).toEqual({
+          type: 'url',
+          url: 'https://gitlab.example.com:8443/team/repo.git',
+        })
+        expect(result.value.ref).toBe('v2')
+        expect(result.value.skill).toBe('tdd')
+      }
+    })
+
     it('parses URL without skill (partial)', () => {
       const result = parseSpecifier(
         'my-plugin@https://gitlab.com/team/repo.git',
@@ -372,6 +405,36 @@ describe('parseMarketplaceRef', () => {
         repo: 'claude-code',
       })
       expect(result.value.ref).toBeUndefined()
+    }
+  })
+
+  it('parses URL with port number', () => {
+    const result = parseMarketplaceRef(
+      'https://gitlab.example.com:8443/team/repo.git',
+    )
+
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.marketplace).toEqual({
+        type: 'url',
+        url: 'https://gitlab.example.com:8443/team/repo.git',
+      })
+      expect(result.value.ref).toBeUndefined()
+    }
+  })
+
+  it('parses URL with port number and version', () => {
+    const result = parseMarketplaceRef(
+      'https://gitlab.example.com:8443/team/repo.git:v1.0',
+    )
+
+    expect(result.isOk()).toBe(true)
+    if (result.isOk()) {
+      expect(result.value.marketplace).toEqual({
+        type: 'url',
+        url: 'https://gitlab.example.com:8443/team/repo.git',
+      })
+      expect(result.value.ref).toBe('v1.0')
     }
   })
 

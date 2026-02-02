@@ -195,7 +195,19 @@ function splitMarketplaceAndColons(input: string): {
     searchFrom = 0
   }
 
-  const firstColonAfterMarketplace = input.indexOf(':', searchFrom)
+  let firstColonAfterMarketplace = input.indexOf(':', searchFrom)
+
+  // If the colon is followed by digits and "/" (a port number), skip past it
+  if (firstColonAfterMarketplace !== -1 && protocolIndex !== -1) {
+    const afterColon = input.slice(firstColonAfterMarketplace + 1)
+    const portMatch = /^\d+\//.exec(afterColon)
+    if (portMatch) {
+      firstColonAfterMarketplace = input.indexOf(
+        ':',
+        firstColonAfterMarketplace + 1 + portMatch[0].length,
+      )
+    }
+  }
 
   if (firstColonAfterMarketplace === -1) {
     return { marketplace: input, colonSegments: [] }
