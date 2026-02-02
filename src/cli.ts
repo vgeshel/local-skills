@@ -167,7 +167,7 @@ export function createProgram(options?: ProgramOptions): Command {
 
       for (const entry of result.value) {
         const specifier = `${entry.source}:${entry.name}`
-        console.log(specifier)
+        console.log(entry.installed ? `${specifier} *` : specifier)
         if (opts.long && entry.description) {
           console.log(`  ${entry.description}`)
         }
@@ -216,6 +216,9 @@ export function createProgram(options?: ProgramOptions): Command {
       }
 
       console.log(`Skill: ${result.value.name}`)
+      if (result.value.installedSha) {
+        console.log(`Installed: yes (${result.value.installedSha.slice(0, 7)})`)
+      }
       if (result.value.source) console.log(`Source: ${result.value.source}`)
       if (result.value.ref) console.log(`Ref: ${result.value.ref}`)
       if (result.value.sha) console.log(`SHA: ${result.value.sha}`)

@@ -19,6 +19,7 @@ export interface LsEntry {
   readonly name: string
   readonly source: string
   readonly description?: string
+  readonly installed?: boolean
 }
 
 export interface LsOptions {
@@ -81,7 +82,23 @@ export function ls(
     }
   }
 
-  return result.map(sortEntries)
+  if (query.type === 'installed') {
+    return result.map((entries) =>
+      sortEntries(entries.map((e) => ({ ...e, installed: true }))),
+    )
+  }
+
+  const manifestPath = path.join(projectDir, '.claude', 'local-skills.json')
+  return result.andThen((entries) =>
+    readManifest(deps, manifestPath).map((manifest) => {
+      const installedNames = new Set(Object.keys(manifest.skills))
+      return sortEntries(
+        entries.map((e) =>
+          installedNames.has(e.name) ? { ...e, installed: true } : e,
+        ),
+      )
+    }),
+  )
 }
 
 function readDescription(

@@ -396,7 +396,7 @@ describe('CLI command actions', () => {
       await program.parseAsync(['node', 'local-skills', 'ls'])
 
       expect(logSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/superpowers@.+:tdd$/),
+        expect.stringMatching(/superpowers@.+:tdd \*$/),
       )
     })
 
@@ -421,8 +421,31 @@ describe('CLI command actions', () => {
       const program = createProgram({ deps, projectDir })
       await program.parseAsync(['node', 'local-skills', 'ls', '-l'])
 
-      expect(logSpy).toHaveBeenCalledWith('p@test:my-skill')
+      expect(logSpy).toHaveBeenCalledWith('p@test:my-skill *')
       expect(logSpy).toHaveBeenCalledWith('  A great skill')
+    })
+
+    it('shows asterisk for installed skills in remote listing', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        `file://${marketplaceRepo}`,
+      ])
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/tdd \*$/))
     })
 
     it('lists remote marketplace skills', async () => {
@@ -526,8 +549,50 @@ describe('CLI command actions', () => {
 
       expect(logSpy).toHaveBeenCalledWith('Skill: tdd')
       expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/^Installed: yes \([0-9a-f]{7}\)$/),
+      )
+      expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('Source: superpowers@'),
       )
+    })
+
+    it('shows installed status with SHA for remote info of installed skill', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'info',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/^Installed: yes \([0-9a-f]{7}\)$/),
+      )
+    })
+
+    it('does not show installed line for remote info of non-installed skill', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'info',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+
+      const calls = logSpy.mock.calls.map((c) => c[0])
+      expect(calls).not.toContain(expect.stringContaining('Installed'))
     })
 
     it('displays front matter from SKILL.md', async () => {

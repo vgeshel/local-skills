@@ -18,6 +18,7 @@ export interface InfoResult {
   readonly source?: string
   readonly ref?: string
   readonly sha?: string
+  readonly installedSha?: string
   readonly frontMatter: Record<string, unknown>
 }
 
@@ -42,6 +43,7 @@ export function info(
     case 'remote':
       return infoRemote(
         deps,
+        projectDir,
         query.pluginName,
         query.marketplaceUrl,
         query.skillName,
@@ -85,6 +87,7 @@ function infoInstalled(
           source: entry.source,
           ref: entry.ref,
           sha: entry.sha,
+          installedSha: entry.sha,
           frontMatter: data,
         }
       })
@@ -95,6 +98,7 @@ function infoInstalled(
           source: entry.source,
           ref: entry.ref,
           sha: entry.sha,
+          installedSha: entry.sha,
           frontMatter: {},
         }),
       )
@@ -103,11 +107,14 @@ function infoInstalled(
 
 function infoRemote(
   deps: Deps,
+  projectDir: string,
   pluginName: string,
   marketplaceUrl: string,
   skillName: string,
   ref: string | undefined,
 ): ResultAsync<InfoResult, LocalSkillsError> {
+  const manifestPath = path.join(projectDir, '.claude', 'local-skills.json')
+
   return withTempClone(deps, marketplaceUrl, ref, (cloneDir) =>
     readMarketplace(deps, cloneDir).andThen((marketplace) => {
       const pluginResult = findPlugin(marketplace, pluginName)
@@ -136,13 +143,17 @@ function infoRemote(
               `Skill "${skillName}" not found in plugin "${pluginName}"`,
             ),
           )
-          .map((content) => {
+          .andThen((content) => {
             const { data } = parseFrontMatter(content)
-            const result: InfoResult = {
-              name: skillName,
-              frontMatter: data,
-            }
-            return result
+            return readManifest(deps, manifestPath).map((manifest) => {
+              const entry = manifest.skills[skillName]
+              const result: InfoResult = {
+                name: skillName,
+                ...(entry ? { installedSha: entry.sha } : {}),
+                frontMatter: data,
+              }
+              return result
+            })
           })
       })
     }),

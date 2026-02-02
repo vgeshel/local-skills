@@ -96,6 +96,7 @@ Write tests first.`,
       if (result.isOk()) {
         expect(result.value.name).toBe('tdd')
         expect(result.value.source).toContain('superpowers@')
+        expect(result.value.installedSha).toBeDefined()
         expect(result.value.frontMatter.name).toBe('tdd')
         expect(result.value.frontMatter.description).toBe(
           'Test-driven development workflow',
@@ -184,10 +185,33 @@ Write tests first.`,
       expect(result.isOk()).toBe(true)
       if (result.isOk()) {
         expect(result.value.name).toBe('tdd')
+        expect(result.value.installedSha).toBeUndefined()
         expect(result.value.frontMatter.name).toBe('tdd')
         expect(result.value.frontMatter.description).toBe(
           'Test-driven development workflow',
         )
+      }
+    })
+
+    it('marks remote skill as installed when it is', async () => {
+      await add(deps, projectDir, {
+        plugin: 'superpowers',
+        marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+        skill: 'tdd',
+        ref: undefined,
+      })
+
+      const result = await info(deps, projectDir, {
+        type: 'remote',
+        pluginName: 'superpowers',
+        marketplaceUrl: `file://${marketplaceRepo}`,
+        skillName: 'tdd',
+        ref: undefined,
+      })
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.installedSha).toBeDefined()
       }
     })
 

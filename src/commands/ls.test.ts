@@ -100,6 +100,7 @@ describe('ls command', () => {
         expect(result.value).toHaveLength(1)
         expect(result.value[0].name).toBe('tdd')
         expect(result.value[0].source).toContain('superpowers@')
+        expect(result.value[0].installed).toBe(true)
       }
     })
 
@@ -236,6 +237,29 @@ describe('ls command', () => {
         const labels = result.value.map((e) => `${e.source}:${e.name}`)
         const sorted = [...labels].sort()
         expect(labels).toEqual(sorted)
+      }
+    })
+
+    it('marks installed skills in remote listing', async () => {
+      await add(deps, projectDir, {
+        plugin: 'superpowers',
+        marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+        skill: 'tdd',
+        ref: undefined,
+      })
+
+      const result = await ls(deps, projectDir, {
+        type: 'remote-marketplace',
+        marketplaceUrl: `file://${marketplaceRepo}`,
+        ref: undefined,
+      })
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        const tdd = result.value.find((e) => e.name === 'tdd')
+        const debug = result.value.find((e) => e.name === 'debug')
+        expect(tdd?.installed).toBe(true)
+        expect(debug?.installed).toBeUndefined()
       }
     })
 
