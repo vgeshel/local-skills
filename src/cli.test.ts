@@ -515,6 +515,77 @@ describe('CLI command actions', () => {
       expect(process.exitCode).toBe(1)
     })
 
+    it('shows only installed skills with --installed flag', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        `file://${marketplaceRepo}`,
+        '--installed',
+      ])
+
+      const calls = logSpy.mock.calls.map((c) => String(c[0]))
+      expect(calls.every((line) => line.includes('tdd'))).toBe(true)
+      expect(calls.some((line) => line.includes('*'))).toBe(true)
+    })
+
+    it('shows only non-installed skills with --not-installed flag', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      const setupProgram = createProgram({ deps, projectDir })
+      await setupProgram.parseAsync([
+        'node',
+        'local-skills',
+        'add',
+        `superpowers@file://${marketplaceRepo}:tdd`,
+      ])
+      vi.restoreAllMocks()
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        `file://${marketplaceRepo}`,
+        '--not-installed',
+      ])
+
+      const calls = logSpy.mock.calls.map((c) => String(c[0]))
+      expect(calls.some((line) => line.includes('tdd'))).toBe(false)
+      expect(calls.every((line) => !line.includes('*'))).toBe(true)
+    })
+
+    it('errors when --installed and --not-installed are both specified', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const program = createProgram({ deps, projectDir })
+
+      await program.parseAsync([
+        'node',
+        'local-skills',
+        'ls',
+        `file://${marketplaceRepo}`,
+        '--installed',
+        '--not-installed',
+      ])
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error: --installed and --not-installed are mutually exclusive',
+      )
+      expect(process.exitCode).toBe(1)
+    })
+
     it('prints error for GitHub shorthand marketplace that does not exist', async () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const program = createProgram({ deps, projectDir })

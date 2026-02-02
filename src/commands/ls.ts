@@ -24,6 +24,7 @@ export interface LsEntry {
 
 export interface LsOptions {
   readonly long?: boolean
+  readonly filter?: 'installed' | 'not-installed'
 }
 
 export type LsQuery =
@@ -39,6 +40,19 @@ export type LsQuery =
       readonly marketplaceUrl: string
       readonly ref: string | undefined
     }
+
+function applyFilter(
+  entries: readonly LsEntry[],
+  filter: LsOptions['filter'],
+): readonly LsEntry[] {
+  if (filter === 'installed') {
+    return entries.filter((e) => e.installed)
+  }
+  if (filter === 'not-installed') {
+    return entries.filter((e) => !e.installed)
+  }
+  return entries
+}
 
 function sortEntries(entries: readonly LsEntry[]): readonly LsEntry[] {
   return [...entries].sort((a, b) =>
@@ -84,7 +98,10 @@ export function ls(
 
   if (query.type === 'installed') {
     return result.map((entries) =>
-      sortEntries(entries.map((e) => ({ ...e, installed: true }))),
+      applyFilter(
+        sortEntries(entries.map((e) => ({ ...e, installed: true }))),
+        options?.filter,
+      ),
     )
   }
 
@@ -92,10 +109,13 @@ export function ls(
   return result.andThen((entries) =>
     readManifest(deps, manifestPath).map((manifest) => {
       const installedNames = new Set(Object.keys(manifest.skills))
-      return sortEntries(
-        entries.map((e) =>
-          installedNames.has(e.name) ? { ...e, installed: true } : e,
+      return applyFilter(
+        sortEntries(
+          entries.map((e) =>
+            installedNames.has(e.name) ? { ...e, installed: true } : e,
+          ),
         ),
+        options?.filter,
       )
     }),
   )

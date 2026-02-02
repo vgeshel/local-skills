@@ -1,4 +1,5 @@
 import { Command } from 'commander'
+import { bold, dim, green } from 'yoctocolors'
 
 import { add, marketplaceUrl, sourceLabel } from './commands/add.js'
 import { info, type InfoQuery } from './commands/info.js'
@@ -113,66 +114,90 @@ export function createProgram(options?: ProgramOptions): Command {
     .description('List skills (installed or from a marketplace)')
     .argument('[source]', 'marketplace or plugin@marketplace[:version]')
     .option('-l, --long', 'Show descriptions from SKILL.md front matter')
-    .action(async (source: string | undefined, opts: { long?: boolean }) => {
-      let query: LsQuery
-
-      if (source === undefined) {
-        query = { type: 'installed' }
-      } else if (source.includes('@')) {
-        const parsed = parseSpecifier(source)
-        if (parsed.isErr()) {
-          console.error(formatError(parsed.error))
+    .option('--installed', 'Show only installed skills')
+    .option('--not-installed', 'Show only non-installed skills')
+    .action(
+      async (
+        source: string | undefined,
+        opts: { long?: boolean; installed?: boolean; notInstalled?: boolean },
+      ) => {
+        if (opts.installed && opts.notInstalled) {
+          console.error(
+            'Error: --installed and --not-installed are mutually exclusive',
+          )
           process.exitCode = 1
           return
         }
-        query = {
-          type: 'remote-plugin',
-          pluginName: parsed.value.plugin,
-          marketplaceUrl: marketplaceUrl(parsed.value),
-          ref: parsed.value.ref,
+
+        const filter = opts.installed
+          ? ('installed' as const)
+          : opts.notInstalled
+            ? ('not-installed' as const)
+            : undefined
+
+        let query: LsQuery
+
+        if (source === undefined) {
+          query = { type: 'installed' }
+        } else if (source.includes('@')) {
+          const parsed = parseSpecifier(source)
+          if (parsed.isErr()) {
+            console.error(formatError(parsed.error))
+            process.exitCode = 1
+            return
+          }
+          query = {
+            type: 'remote-plugin',
+            pluginName: parsed.value.plugin,
+            marketplaceUrl: marketplaceUrl(parsed.value),
+            ref: parsed.value.ref,
+          }
+        } else {
+          const parsed = parseMarketplaceRef(source)
+          if (parsed.isErr()) {
+            console.error(formatError(parsed.error))
+            process.exitCode = 1
+            return
+          }
+          const mkt = parsed.value.marketplace
+          const url =
+            mkt.type === 'github'
+              ? `https://github.com/${mkt.owner}/${mkt.repo}.git`
+              : mkt.url
+          query = {
+            type: 'remote-marketplace',
+            marketplaceUrl: url,
+            ref: parsed.value.ref,
+          }
         }
-      } else {
-        const parsed = parseMarketplaceRef(source)
-        if (parsed.isErr()) {
-          console.error(formatError(parsed.error))
+
+        const result = await ls(deps, projectDir, query, {
+          long: opts.long,
+          filter,
+        })
+
+        if (result.isErr()) {
+          console.error(formatError(result.error))
           process.exitCode = 1
           return
         }
-        const mkt = parsed.value.marketplace
-        const url =
-          mkt.type === 'github'
-            ? `https://github.com/${mkt.owner}/${mkt.repo}.git`
-            : mkt.url
-        query = {
-          type: 'remote-marketplace',
-          marketplaceUrl: url,
-          ref: parsed.value.ref,
+
+        if (result.value.length === 0) {
+          console.log('No skills found')
+          return
         }
-      }
 
-      const result = await ls(deps, projectDir, query, {
-        long: opts.long,
-      })
-
-      if (result.isErr()) {
-        console.error(formatError(result.error))
-        process.exitCode = 1
-        return
-      }
-
-      if (result.value.length === 0) {
-        console.log('No skills found')
-        return
-      }
-
-      for (const entry of result.value) {
-        const specifier = `${entry.source}:${entry.name}`
-        console.log(entry.installed ? `${specifier} *` : specifier)
-        if (opts.long && entry.description) {
-          console.log(`  ${entry.description}`)
+        for (const entry of result.value) {
+          const specifier = `${dim(`${entry.source}:`)}${bold(entry.name)}`
+          console.log(
+            entry.installed ? `${specifier} ${green('*')}` : specifier,
+          )
+          if (opts.long && entry.description) {
+            console.log(`  ${dim(entry.description)}`)
+          }
         }
-      }
-    })
+      },
+    )
 
   program
     .command('info')
@@ -215,18 +240,21 @@ export function createProgram(options?: ProgramOptions): Command {
         return
       }
 
-      console.log(`Skill: ${result.value.name}`)
+      console.log(`${dim('Skill:')} ${bold(result.value.name)}`)
       if (result.value.installedSha) {
-        console.log(`Installed: yes (${result.value.installedSha.slice(0, 7)})`)
+        console.log(
+          `${dim('Installed:')} ${green('yes')} ${dim(`(${result.value.installedSha.slice(0, 7)})`)}`,
+        )
       }
-      if (result.value.source) console.log(`Source: ${result.value.source}`)
-      if (result.value.ref) console.log(`Ref: ${result.value.ref}`)
-      if (result.value.sha) console.log(`SHA: ${result.value.sha}`)
+      if (result.value.source)
+        console.log(`${dim('Source:')} ${result.value.source}`)
+      if (result.value.ref) console.log(`${dim('Ref:')} ${result.value.ref}`)
+      if (result.value.sha) console.log(`${dim('SHA:')} ${result.value.sha}`)
 
       const fm = result.value.frontMatter
       if (Object.keys(fm).length > 0) {
         for (const [key, value] of Object.entries(fm)) {
-          console.log(`${key}: ${String(value)}`)
+          console.log(`${dim(`${key}:`)} ${String(value)}`)
         }
       }
     })

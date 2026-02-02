@@ -429,6 +429,62 @@ describe('ls command', () => {
     })
   })
 
+  describe('filter option', () => {
+    it('returns only installed entries with filter installed', async () => {
+      await add(deps, projectDir, {
+        plugin: 'superpowers',
+        marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+        skill: 'tdd',
+        ref: undefined,
+      })
+
+      const result = await ls(
+        deps,
+        projectDir,
+        {
+          type: 'remote-marketplace',
+          marketplaceUrl: `file://${marketplaceRepo}`,
+          ref: undefined,
+        },
+        { filter: 'installed' },
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        // tdd is installed, matching both plugin sources by name
+        expect(result.value.every((e) => e.name === 'tdd')).toBe(true)
+        expect(result.value.every((e) => e.installed === true)).toBe(true)
+        expect(result.value.length).toBeGreaterThanOrEqual(1)
+      }
+    })
+    it('returns only non-installed entries with filter not-installed', async () => {
+      await add(deps, projectDir, {
+        plugin: 'superpowers',
+        marketplace: { type: 'url', url: `file://${marketplaceRepo}` },
+        skill: 'tdd',
+        ref: undefined,
+      })
+
+      const result = await ls(
+        deps,
+        projectDir,
+        {
+          type: 'remote-marketplace',
+          marketplaceUrl: `file://${marketplaceRepo}`,
+          ref: undefined,
+        },
+        { filter: 'not-installed' },
+      )
+
+      expect(result.isOk()).toBe(true)
+      if (result.isOk()) {
+        expect(result.value.every((e) => !e.installed)).toBe(true)
+        expect(result.value.every((e) => e.name === 'debug')).toBe(true)
+        expect(result.value.length).toBeGreaterThanOrEqual(1)
+      }
+    })
+  })
+
   describe('ls remote plugin', () => {
     it('lists skills in a specific plugin', async () => {
       const result = await ls(deps, projectDir, {
