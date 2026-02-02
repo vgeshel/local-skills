@@ -4,10 +4,29 @@ Claude skills (also used by other coding tools) are distributed via [plugins](ht
 
 This little utility helps you install skills from Claude Code plugin marketplaces into your project's `.claude/skills/` directory. Each project gets a curated, version-controlled set of skills.
 
-## Installation
+## Install as a skill to use from Claude Code
 
 ```bash
-pnpm install
+claude plugin marketplace add vgeshel/local-skills
+claude plugin install local-skills@local-skills-marketplace
+```
+
+Then, ask Claude to install a skill locally, e.g.:
+
+```
+install skill locally systematic-debugging@obra/superpowers
+```
+
+## Or install for CLI usage
+
+```bash
+npm i -g local-skills
+```
+
+or
+
+```bash
+npm i --save-dev local-skills
 ```
 
 ## Usage
