@@ -1,0 +1,22 @@
+{
+  "name": "local-skills-marketplace",
+  "owner": {
+    "name": "Vadim Geshel"
+  },
+  "metadata": {
+    "description": "Plugin marketplace for the local-skills CLI tool"
+  },
+  "plugins": [
+    {
+      "name": "local-skills",
+      "source": "./plugins/local-skills",
+      "description": "Teaches Claude Code how to install and manage skills from plugin marketplaces using the local-skills CLI",
+      "version": "0.1.0",
+      "homepage": "https://github.com/vgeshel/local-skills",
+      "repository": "https://github.com/vgeshel/local-skills",
+      "license": "MIT",
+      "keywords": ["skills", "marketplace", "cli", "local-skills"],
+      "category": "development-workflows"
+    }
+  ]
+}
