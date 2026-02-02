@@ -103,67 +103,65 @@ export function update(
       .andThen((newSha) => {
         // Already up to date
         if (newSha === entry.sha) {
-          return deps
-            .rm(cloneDir)
-            .map(
-              () =>
-                ({
-                  status: 'already-up-to-date',
-                  sha: newSha,
-                }) satisfies UpdateResult,
-            )
+          return deps.rm(cloneDir).map(
+            () =>
+              ({
+                status: 'already-up-to-date',
+                sha: newSha,
+              }) satisfies UpdateResult,
+          )
         }
 
-        return readMarketplace(deps, cloneDir).andThen((marketplace) => {
-          const pluginResult = findPlugin(marketplace, pluginName)
-          if (pluginResult.isErr()) {
-            return errAsync(pluginResult.error)
-          }
-          const plugin = pluginResult.value
-          const pluginDirResult = resolvePluginDir(
-            plugin,
-            cloneDir,
-            marketplace.metadata?.pluginRoot,
-          )
-          const pluginDir = pluginDirResult._unsafeUnwrap()
+        return readMarketplace(deps, cloneDir).andThen((marketplace) =>
+          findPlugin(marketplace, pluginName).asyncAndThen((plugin) =>
+            resolvePluginDir(
+              plugin,
+              cloneDir,
+              marketplace.metadata?.pluginRoot,
+            ).asyncAndThen((pluginDir) => {
+              const skillSrcDir = path.join(pluginDir, 'skills', skillName)
+              const skillDestDir = path.join(claudeDir, 'skills', skillName)
+              const oldSha = entry.sha
 
-          const skillSrcDir = path.join(pluginDir, 'skills', skillName)
-          const skillDestDir = path.join(claudeDir, 'skills', skillName)
-          const oldSha = entry.sha
-
-          return deps
-            .rm(skillDestDir)
-            .andThen(() => deps.cp(skillSrcDir, skillDestDir))
-            .andThen(() => computeContentHash(deps, skillDestDir))
-            .andThen((contentHash) =>
-              readState(deps, statePath).andThen((state) =>
-                writeState(deps, statePath, {
-                  skills: {
-                    ...state.skills,
-                    [skillName]: { contentHash },
-                  },
-                }),
-              ),
-            )
-            .andThen(() => {
-              const updatedManifest = {
-                skills: {
-                  ...manifest.skills,
-                  [skillName]: {
-                    source: entry.source,
-                    ref: entry.ref,
-                    sha: newSha,
-                  },
-                },
-              }
-              return writeManifest(deps, manifestPath, updatedManifest)
-            })
-            .andThen(() => deps.rm(cloneDir))
-            .map(
-              () =>
-                ({ status: 'updated', oldSha, newSha }) satisfies UpdateResult,
-            )
-        })
+              return deps
+                .rm(skillDestDir)
+                .andThen(() => deps.cp(skillSrcDir, skillDestDir))
+                .andThen(() => computeContentHash(deps, skillDestDir))
+                .andThen((contentHash) =>
+                  readState(deps, statePath).andThen((state) =>
+                    writeState(deps, statePath, {
+                      skills: {
+                        ...state.skills,
+                        [skillName]: { contentHash },
+                      },
+                    }),
+                  ),
+                )
+                .andThen(() => {
+                  const updatedManifest = {
+                    skills: {
+                      ...manifest.skills,
+                      [skillName]: {
+                        source: entry.source,
+                        ref: entry.ref,
+                        sha: newSha,
+                      },
+                    },
+                  }
+                  return writeManifest(deps, manifestPath, updatedManifest)
+                })
+                .andThen(() => deps.rm(cloneDir))
+                .map(
+                  () =>
+                    ({
+                      status: 'updated',
+                      oldSha,
+                      newSha,
+                    }) satisfies UpdateResult,
+                )
+            }),
+          ),
+        )
       })
   })
 }

@@ -65,51 +65,49 @@ export function add(
   return cloneRepo(deps, url, cloneDir, spec.ref ?? undefined)
     .andThen(() => getHeadSha(deps, cloneDir))
     .andThen((sha) =>
-      readMarketplace(deps, cloneDir).andThen((marketplace) => {
-        const pluginResult = findPlugin(marketplace, spec.plugin)
-        if (pluginResult.isErr()) {
-          return errAsync(pluginResult.error)
-        }
-        const plugin = pluginResult.value
+      readMarketplace(deps, cloneDir).andThen((marketplace) =>
+        findPlugin(marketplace, spec.plugin).asyncAndThen((plugin) =>
+          resolvePluginDir(
+            plugin,
+            cloneDir,
+            marketplace.metadata?.pluginRoot,
+          ).asyncAndThen((pluginDir) => {
+            // Determine if we need to clone a separate plugin repo
+            const isRemote = typeof plugin.source === 'object'
 
-        const pluginDirResult = resolvePluginDir(
-          plugin,
-          cloneDir,
-          marketplace.metadata?.pluginRoot,
-        )
-        // resolvePluginDir always returns Ok for valid plugin sources
-        const pluginDir = pluginDirResult._unsafeUnwrap()
-
-        // Determine if we need to clone a separate plugin repo
-        const isRemote = typeof plugin.source === 'object'
-
-        if (isRemote) {
-          const pluginCloneDir = path.join(
-            tmpBase,
-            `local-skills-plugin-${Date.now()}`,
-          )
-          return cloneRepo(deps, pluginDir, pluginCloneDir, undefined).andThen(
-            () =>
-              installSkills(
+            if (isRemote) {
+              const pluginCloneDir = path.join(
+                tmpBase,
+                `local-skills-plugin-${Date.now()}`,
+              )
+              return cloneRepo(
                 deps,
-                spec,
+                pluginDir,
                 pluginCloneDir,
-                sha,
-                claudeDir,
-                manifestPath,
-              ),
-          )
-        }
+                undefined,
+              ).andThen(() =>
+                installSkills(
+                  deps,
+                  spec,
+                  pluginCloneDir,
+                  sha,
+                  claudeDir,
+                  manifestPath,
+                ),
+              )
+            }
 
-        return installSkills(
-          deps,
-          spec,
-          pluginDir,
-          sha,
-          claudeDir,
-          manifestPath,
-        )
-      }),
+            return installSkills(
+              deps,
+              spec,
+              pluginDir,
+              sha,
+              claudeDir,
+              manifestPath,
+            )
+          }),
+        ),
+      ),
     )
     .andThen(() => deps.rm(cloneDir))
 }
