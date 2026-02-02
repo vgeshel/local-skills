@@ -1,0 +1,11 @@
+{
+  "name": "local-skills",
+  "description": "Teaches Claude Code how to install and manage skills from plugin marketplaces using the local-skills CLI",
+  "version": "0.1.0",
+  "author": {
+    "name": "Vadim Geshel"
+  },
+  "homepage": "https://github.com/vgeshel/local-skills",
+  "repository": "https://github.com/vgeshel/local-skills",
+  "license": "MIT"
+}
