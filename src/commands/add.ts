@@ -51,6 +51,7 @@ export function add(
   spec: ParsedSpecifier,
 ): ResultAsync<void, LocalSkillsError> {
   const claudeDir = path.join(projectDir, '.claude')
+  const agentsDir = path.join(projectDir, '.agents')
   const manifestPath = path.join(claudeDir, 'local-skills.json')
   const url = marketplaceUrl(spec)
   const tmpResult = deps.tmpdir()
@@ -92,6 +93,7 @@ export function add(
                   pluginCloneDir,
                   sha,
                   claudeDir,
+                  agentsDir,
                   manifestPath,
                 ),
               )
@@ -103,6 +105,7 @@ export function add(
               pluginDir,
               sha,
               claudeDir,
+              agentsDir,
               manifestPath,
             )
           }),
@@ -118,6 +121,7 @@ function installSkills(
   pluginDir: string,
   sha: string,
   claudeDir: string,
+  agentsDir: string,
   manifestPath: string,
 ): ResultAsync<void, LocalSkillsError> {
   if (spec.skill === undefined) {
@@ -126,7 +130,15 @@ function installSkills(
     )
   }
   if (spec.skill === '*') {
-    return installAllSkills(deps, spec, pluginDir, sha, claudeDir, manifestPath)
+    return installAllSkills(
+      deps,
+      spec,
+      pluginDir,
+      sha,
+      claudeDir,
+      agentsDir,
+      manifestPath,
+    )
   }
   return installSingleSkill(
     deps,
@@ -134,6 +146,7 @@ function installSkills(
     pluginDir,
     sha,
     claudeDir,
+    agentsDir,
     manifestPath,
     spec.skill,
   )
@@ -145,11 +158,15 @@ function installSingleSkill(
   pluginDir: string,
   sha: string,
   claudeDir: string,
+  agentsDir: string,
   manifestPath: string,
   skillName: string,
 ): ResultAsync<void, LocalSkillsError> {
   const skillSrcDir = path.join(pluginDir, 'skills', skillName)
-  const skillDestDir = path.join(claudeDir, 'skills', skillName)
+  const claudeSkillsDir = path.join(claudeDir, 'skills')
+  const agentsSkillsDir = path.join(agentsDir, 'skills')
+  const claudeSkillDestDir = path.join(claudeSkillsDir, skillName)
+  const agentsSkillDestDir = path.join(agentsSkillsDir, skillName)
 
   return deps
     .exists(skillSrcDir)
@@ -179,9 +196,11 @@ function installSingleSkill(
     .andThen((updated) => {
       const statePath = path.join(claudeDir, 'local-skills-state.json')
       return deps
-        .mkdir(path.join(claudeDir, 'skills'))
-        .andThen(() => deps.cp(skillSrcDir, skillDestDir))
-        .andThen(() => computeContentHash(deps, skillDestDir))
+        .mkdir(claudeSkillsDir)
+        .andThen(() => deps.mkdir(agentsSkillsDir))
+        .andThen(() => deps.cp(skillSrcDir, claudeSkillDestDir))
+        .andThen(() => deps.cp(skillSrcDir, agentsSkillDestDir))
+        .andThen(() => computeContentHash(deps, claudeSkillDestDir))
         .andThen((contentHash) =>
           readState(deps, statePath).andThen((state) =>
             writeState(deps, statePath, {
@@ -199,6 +218,7 @@ function installAllSkills(
   pluginDir: string,
   sha: string,
   claudeDir: string,
+  agentsDir: string,
   manifestPath: string,
 ): ResultAsync<void, LocalSkillsError> {
   return listSkills(deps, pluginDir).andThen((skills) => {
@@ -212,6 +232,7 @@ function installAllSkills(
           pluginDir,
           sha,
           claudeDir,
+          agentsDir,
           manifestPath,
           skillName,
         ),
