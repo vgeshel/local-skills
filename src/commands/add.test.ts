@@ -90,6 +90,11 @@ describe('add command', () => {
       'utf-8',
     )
     expect(skillMd).toBe('# TDD Skill')
+    const agentsSkillMd = await fs.readFile(
+      path.join(projectDir, '.agents', 'skills', 'tdd', 'SKILL.md'),
+      'utf-8',
+    )
+    expect(agentsSkillMd).toBe('# TDD Skill')
 
     // Verify manifest was created
     const manifestContent = await fs.readFile(
@@ -144,6 +149,16 @@ describe('add command', () => {
       'utf-8',
     )
     expect(debugMd).toBe('# Debug Skill')
+    const tddAgentsMd = await fs.readFile(
+      path.join(projectDir, '.agents', 'skills', 'tdd', 'SKILL.md'),
+      'utf-8',
+    )
+    expect(tddAgentsMd).toBe('# TDD Skill')
+    const debugAgentsMd = await fs.readFile(
+      path.join(projectDir, '.agents', 'skills', 'debug', 'SKILL.md'),
+      'utf-8',
+    )
+    expect(debugAgentsMd).toBe('# Debug Skill')
 
     // Verify manifest has both skills
     const manifestContent = await fs.readFile(
@@ -361,6 +376,11 @@ describe('add command', () => {
         'utf-8',
       )
       expect(skillMd).toBe('# Remote Skill')
+      const agentsSkillMd = await fs.readFile(
+        path.join(projectDir, '.agents', 'skills', 'remote-skill', 'SKILL.md'),
+        'utf-8',
+      )
+      expect(agentsSkillMd).toBe('# Remote Skill')
     } finally {
       await fs.rm(pluginRepo, { recursive: true, force: true })
       await fs.rm(remoteMarketplace, { recursive: true, force: true })

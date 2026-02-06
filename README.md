@@ -2,7 +2,7 @@
 
 Claude skills (also used by other coding tools) are distributed via [plugins](https://code.claude.com/docs/en/discover-plugins#install-plugins) and normally installed in ~/.claude. This leads to each contributor to a project, or even each machine, having a different set of skills.
 
-This little utility helps you install skills from Claude Code plugin marketplaces into your project's `.claude/skills/` directory. Each project gets a curated, version-controlled set of skills.
+This little utility helps you install skills from Claude Code plugin marketplaces into your project's `.claude/skills/` directory, and mirrors them to `.agents/skills/` for Codex-compatible layouts. Each project gets a curated, version-controlled set of skills.
 
 ## Install as a skill to use from Claude Code
 
@@ -117,7 +117,7 @@ Records what the skill files looked like at install time, so `update` can detect
 1. Parses the specifier to identify the plugin, marketplace, skill, and optional version
 2. Shallow-clones the marketplace git repo
 3. Reads `.claude-plugin/marketplace.json` to find the plugin
-4. Copies the skill directory to `.claude/skills/<skill-name>/`
+4. Copies the skill directory to `.claude/skills/<skill-name>/` and `.agents/skills/<skill-name>/`
 5. Records the source, ref, and commit SHA in the manifest
 6. Computes a content hash of the installed files and stores it in the state file
 

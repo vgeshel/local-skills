@@ -14,6 +14,7 @@ export default [
       'eslint.config.*',
       'vitest.config.ts',
       '.claude/skills/**',
+      '.agents/skills/**',
     ],
   },
 
